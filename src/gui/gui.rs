@@ -1,4 +1,4 @@
-use iced::widget::{button, column, container, row, text_editor};
+use iced::widget::{button, column, container, row, text_editor, Container};
 use iced::Length::Fill;
 use iced::{Alignment, Element};
 
@@ -56,10 +56,19 @@ pub fn view(state: &State) -> Element<Message> {
             Tab::Editor => editor_screen(state).map(Message::MessageEditor),
         };
 
-    container(
+    let contentBox = container(content)
+        .width(Fill)
+        .height(Fill)
+        .align_x(Alignment::Center)
+        .align_y(Alignment::Center);
 
-        tab_bar
-            .align_y(Alignment::Start)
+    container(  
+        column![
+            tab_bar,
+            contentBox
+        ]
+
+        
         
 
     )
