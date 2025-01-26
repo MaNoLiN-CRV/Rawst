@@ -1,5 +1,5 @@
 use iced::Theme;
-use cosmtes::gui::gui::{update, view, State};
+use cosmtes::{filemanager::directory::initialize_folder_system, gui::gui::{update, view, State}};
 
 pub fn main() -> iced::Result {
     iced::application("Cosmtes", update, view)
@@ -10,5 +10,6 @@ pub fn main() -> iced::Result {
 fn theme(_state: &State) -> Theme {
     Theme::Ferra
 }
+
 
 
