@@ -3,25 +3,23 @@ pub mod filemanager;
 
 
 
-use gui::appareance::theme::Theme;
+use iced::Theme;
+
 use gui::gui::{update, view, State};
 
 
 
 pub fn main() -> iced::Result {
 
-    iced::application("Cosmtes", update, view)
-    .theme(Theme::Cosm)
+    iced::application("Cosmurl", update, view)
+    .theme(theme)
     .run()
 
 }
 
-pub fn theme(state: &State) -> iced::Theme {
-    Theme::Cosm
+fn theme(state: &State) -> Theme {
+    Theme::Ferra
 }
-
-
-
 
 
 

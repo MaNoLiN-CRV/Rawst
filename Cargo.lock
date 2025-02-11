@@ -3,6 +3,14 @@
 version = 4
 
 [[package]]
+name = "Cosmurl"
+version = "0.1.0"
+dependencies = [
+ "iced",
+ "whoami",
+]
+
+[[package]]
 name = "ab_glyph"
 version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -499,14 +507,6 @@ dependencies = [
  "unicode-linebreak",
  "unicode-script",
  "unicode-segmentation",
-]
-
-[[package]]
-name = "cosmtes"
-version = "0.1.0"
-dependencies = [
- "iced",
- "whoami",
 ]
 
 [[package]]

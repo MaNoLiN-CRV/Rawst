@@ -1,20 +1,20 @@
-use iced::widget::{button, column, container, row};
+use iced::widget::{button, column, container, row, text};
 use iced::Length::Fill;
 use iced::{Alignment, Element, Task};
 
 use crate::gui::home::home_screen;
 use crate::gui::home;
-use crate::gui::editor::editor_screen;
-use crate::gui::editor;
 
-use crate::gui::editor::MessageEditor;
 
+
+
+use super::appareance::theme::button::button_style;
 use super::home::handle_message;
+use super::widgets::request_button::{self, request_button_component, RequestButton};
 
 #[derive(Default)]
 pub struct State {
     actual_tab: Tab,
-    editor_state: editor::StateEditor,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
@@ -28,7 +28,7 @@ pub enum Tab {
 pub enum Message {
     TabChanged(Tab),
     MessageHome(home::MessageHome),
-    MessageEditor(editor::MessageEditor),
+    RequestButtonPressed(String),
 }
 
 pub fn update(state: &mut State, message: Message) -> iced::Task<Message> {
@@ -37,60 +37,61 @@ pub fn update(state: &mut State, message: Message) -> iced::Task<Message> {
             state.actual_tab = message;
             Task::none()
         }
-        Message::MessageEditor(MessageEditor::Edit(action)) => {
-            state.editor_state.text_editor_content.perform(action);
-            Task::none()
-        }
         Message::MessageHome(message) => {
             handle_message(message).map(Message::MessageHome)
         }
-     
+        Message::RequestButtonPressed(request_name) => {
+            println!("Request button pressed: {}", request_name);
+            Task::none()
+        }
     }
 }
 
 pub fn view(state: &State) -> Element<Message> {
 
-    let tab_bar = row![
-      
-        button("Home")
-            .on_press(Message::TabChanged(Tab::Home)),
+    let requests_tab_bar = column![
 
-        button("Editor")
-            .on_press(Message::TabChanged(Tab::Editor)),
-       
+        request_button_component(RequestButton {
+            name: "Request 1",
+            url: "https://api.example.com",
+            method: "GET"
+        }),
+
         iced::widget::Space::with_width(Fill), 
-       
-        button("New File")
-            .on_press(Message::MessageHome(home::MessageHome::CreateFile))
-            
     ]
     .spacing(5)
     .width(Fill);
 
-
-    let content: Element<Message> = match state.actual_tab {
-            Tab::Home => home_screen().map(Message::MessageHome),
-            Tab::Editor => editor_screen(&state.editor_state).map(Message::MessageEditor),
-        };
-
-    let content_box = container(content)
-        .width(Fill)
-        .height(Fill)
-        .align_x(Alignment::Center)
-        .align_y(Alignment::Center);
-    
-    container(  
-        column![
-            tab_bar,
-            content_box
-        ]
+    let search_and_name = column![
+        text("COSMURL"),
         
+        
+    ]
+    .spacing(20);
 
+    let left_bar = column![
+
+        container(
+            column![
+                search_and_name,
+                requests_tab_bar
+            ].spacing(20)
+        )
+     
+    
+    ]
+    .spacing(20);
+
+  
+
+
+    container(  
+        left_bar
     )
 
 
         
-    .padding(10)
+    .padding(15)
     .width(Fill)
     .height(Fill)
     .into()
