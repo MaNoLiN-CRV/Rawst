@@ -1,6 +1,6 @@
-use iced::widget::{button, column, container, row, text_editor, Container};
+use iced::widget::{button, column, container, row};
 use iced::Length::Fill;
-use iced::{padding, Alignment, Element, Task};
+use iced::{Alignment, Element, Task};
 
 use crate::gui::home::home_screen;
 use crate::gui::home;
@@ -11,15 +11,10 @@ use crate::gui::editor::MessageEditor;
 
 use super::home::handle_message;
 
-
-
 #[derive(Default)]
 pub struct State {
-
     actual_tab: Tab,
     editor_state: editor::StateEditor,
- 
-
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
@@ -51,18 +46,27 @@ pub fn update(state: &mut State, message: Message) -> iced::Task<Message> {
         }
      
     }
-  
 }
 
 pub fn view(state: &State) -> Element<Message> {
 
     let tab_bar = row![
-            button("Home")
-                .on_press(Message::TabChanged(Tab::Home)),
-            button("Editor")
-                .on_press(Message::TabChanged(Tab::Editor)),
-        ]
-        .spacing(5);
+      
+        button("Home")
+            .on_press(Message::TabChanged(Tab::Home)),
+
+        button("Editor")
+            .on_press(Message::TabChanged(Tab::Editor)),
+       
+        iced::widget::Space::with_width(Fill), 
+       
+        button("New File")
+            .on_press(Message::MessageHome(home::MessageHome::CreateFile))
+            
+    ]
+    .spacing(5)
+    .width(Fill);
+
 
     let content: Element<Message> = match state.actual_tab {
             Tab::Home => home_screen().map(Message::MessageHome),

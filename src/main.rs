@@ -1,15 +1,28 @@
-use iced::Theme;
-use cosmtes::{filemanager::directory::initialize_folder_system, gui::gui::{update, view, State}};
+pub mod gui;
+pub mod filemanager;
+
+
+
+use gui::appareance::theme::Theme;
+use gui::gui::{update, view, State};
+
+
 
 pub fn main() -> iced::Result {
+
     iced::application("Cosmtes", update, view)
-        .theme(theme)
-        .run()
+    .theme(Theme::Cosm)
+    .run()
+
 }
 
-fn theme(_state: &State) -> Theme {
-    Theme::Ferra
+pub fn theme(state: &State) -> iced::Theme {
+    Theme::Cosm
 }
+
+
+
+
 
 
 

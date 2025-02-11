@@ -3,7 +3,6 @@ use iced::widget::{button, column, container, row, text, text_editor, toggler, B
 use iced::Length::Fill;
 use iced::{Element, Padding, Task};
 
-use super::styling::{selected, unselected};
 
 #[derive(Debug, Clone)]
 pub enum MessageEditor {
@@ -29,9 +28,8 @@ fn editor_box(state: &StateEditor) -> Element<MessageEditor> {
 fn file_tab(state: &StateEditor) -> Element<MessageEditor> {
     container(
         column![
-            button("C://file.txt").style(unselected),
-            button("C://file.txt").style(selected),
-           
+            button("C://file.txt"),
+            button("C://file.txt")
         ].spacing(10)
         .padding(
             Padding::new(0.0).top(18.5), 
