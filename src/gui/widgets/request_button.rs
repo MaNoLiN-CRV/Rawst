@@ -1,7 +1,8 @@
-use iced::widget::{button, column, container, row, text};
+use iced::widget::{button, column, row, text};
 use iced::{Element, Length};
 
-use crate::gui::appareance::theme::button::button_style;
+use crate::gui::styles::button_styles::{button_style, button_style_toggled};
+
 use crate::gui::gui::Message;
 
 /**
@@ -24,24 +25,25 @@ pub struct RequestButton<'a> {
     pub name: &'a str,
     pub url: &'a str,
     pub method: &'a str,
+    pub is_toggled: bool,
 }
 
 pub fn request_button_component(info: RequestButton<'static>) -> Element<'static, Message> {
     let name = text(info.name);
     let url = text(info.url);
     let method = text(info.method);
+    let is_toggled = info.is_toggled;
 
     button(
         column![row![method, name].spacing(10), url]
             .width(Length::Fill)
     )
-    .on_press(Message::RequestButtonPressed(info.name.to_string()))
+    .on_press(Message::RequestButtonToggled(info.name.to_string()))
     .width(Length::Fill)
-    .style(button_style)
+    .style(if is_toggled {
+        button_style_toggled
+    } else {
+        button_style
+    })
     .into()
 }
-
-
-
-
-

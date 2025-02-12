@@ -1,7 +1,8 @@
 // Import gui.rs
 pub mod gui;
 pub mod home;
-pub mod appareance;
 pub mod widgets;
+pub mod styles;
+pub mod request;
 // Import MainScreen.rs
 

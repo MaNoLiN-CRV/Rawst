@@ -1,16 +1,11 @@
-use iced::widget::{button, column, container, row, text};
+use iced::widget::{column, container, text};
 use iced::Length::Fill;
-use iced::{Alignment, Element, Task};
+use iced::{Element, Task};
 
-use crate::gui::home::home_screen;
 use crate::gui::home;
-
-
-
-
-use super::appareance::theme::button::button_style;
 use super::home::handle_message;
-use super::widgets::request_button::{self, request_button_component, RequestButton};
+use super::request;
+use super::widgets::request_button::{request_button_component, RequestButton};
 
 #[derive(Default)]
 pub struct State {
@@ -28,7 +23,7 @@ pub enum Tab {
 pub enum Message {
     TabChanged(Tab),
     MessageHome(home::MessageHome),
-    RequestButtonPressed(String),
+    RequestButtonToggled(request::RequestImpl),
 }
 
 pub fn update(state: &mut State, message: Message) -> iced::Task<Message> {
@@ -40,8 +35,12 @@ pub fn update(state: &mut State, message: Message) -> iced::Task<Message> {
         Message::MessageHome(message) => {
             handle_message(message).map(Message::MessageHome)
         }
-        Message::RequestButtonPressed(request_name) => {
-            println!("Request button pressed: {}", request_name);
+        Message::RequestButtonToggled(request) => {
+            println!("RequestButtonToggled: {:?}", request);
+            
+
+
+
             Task::none()
         }
     }
@@ -54,8 +53,25 @@ pub fn view(state: &State) -> Element<Message> {
         request_button_component(RequestButton {
             name: "Request 1",
             url: "https://api.example.com",
-            method: "GET"
+            method: "GET",
+            is_toggled: false,
         }),
+
+
+        request_button_component(RequestButton {
+            name: "Request 2",
+            url: "https://api.example.com",
+            method: "GET",
+            is_toggled: true,
+        }),
+
+        request_button_component(RequestButton {
+            name: "Request 3",
+            url: "https://api.example.com",
+            method: "GET",
+            is_toggled: false,
+        }),
+
 
         iced::widget::Space::with_width(Fill), 
     ]

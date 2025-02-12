@@ -30,9 +30,24 @@ pub fn button_style(theme: &Theme, st: Status) -> Style {
         Status::Disabled => {
             style.text_color = palette.secondary.strong.color;
         }
+        
     }
 
     style
 }
 
+pub fn button_style_toggled(theme: &Theme, st: Status) -> Style {
+    let palette = theme.extended_palette();
+    let mut style = Style::default();
 
+    match st {
+        _ => {
+            style.border.width = 1.5;
+            style.text_color = palette.secondary.base.color;
+            style.border.color = palette.secondary.base.color;
+        }
+    }
+
+
+    style  
+}
