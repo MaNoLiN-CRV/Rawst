@@ -4,6 +4,7 @@ use iced::{Element, Length};
 use crate::gui::styles::button_styles::{button_style, button_style_toggled};
 
 use crate::gui::gui::Message;
+use crate::request_manager::request::{Request, RequestImpl};
 
 /**
  * 
@@ -20,25 +21,23 @@ use crate::gui::gui::Message;
  * 'a means that the lifetime of the string is the same as the lifetime of the button, as long 
  * as the button exists, the string will exist (the pointer will exist)
  */
-
-pub struct RequestButton<'a> {
-    pub name: &'a str,
-    pub url: &'a str,
-    pub method: &'a str,
+    
+pub struct RequestButton {
+    pub request: RequestImpl,
     pub is_toggled: bool,
 }
 
-pub fn request_button_component(info: RequestButton<'static>) -> Element<'static, Message> {
-    let name = text(info.name);
-    let url = text(info.url);
-    let method = text(info.method);
+pub fn request_button_component(info: RequestButton) -> Element<'static, Message> {
+    let name = text(info.request.get_name());
+    let url = text(info.request.get_url());
+    let method = text(info.request.get_method().to_string());
     let is_toggled = info.is_toggled;
 
     button(
         column![row![method, name].spacing(10), url]
             .width(Length::Fill)
     )
-    .on_press(Message::RequestButtonToggled(info.name.to_string()))
+    .on_press(Message::RequestButtonToggled(info.request))
     .width(Length::Fill)
     .style(if is_toggled {
         button_style_toggled

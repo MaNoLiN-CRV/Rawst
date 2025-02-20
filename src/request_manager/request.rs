@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 #[derive(Debug, Clone)]
 enum RequestType {
     GET,
@@ -6,10 +8,12 @@ enum RequestType {
     DELETE,
 }
 
-trait Request {
+pub trait Request {
     fn get_name(&self) -> String;
     fn get_url(&self) -> String;
     fn get_method(&self) -> RequestType;
+    fn get_body(&self) -> String;
+    fn get_headers(&self) -> Vec<String>; 
 }
 
 #[derive(Debug, Clone)]
@@ -17,6 +21,16 @@ pub struct RequestImpl {
     name: String,
     url: String,
     method: RequestType,
+    body: String,
+    headers: Vec<String>,
+}
+
+
+
+impl Display for RequestType {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 
@@ -26,6 +40,8 @@ impl Default for RequestImpl {
             name: "Default Request".to_string(),
             url: "https://api.example.com".to_string(),
             method: RequestType::GET,
+            body: "".to_string(),
+            headers: vec![],
         }
     }
 }
@@ -42,6 +58,14 @@ impl Request for RequestImpl {
 
     fn get_method(&self) -> RequestType {
         self.method.clone()
+    }
+
+    fn get_body(&self) -> String {
+        self.body.clone()
+    }
+
+    fn get_headers(&self) -> Vec<String> {
+        self.headers.clone()
     }
 }
 

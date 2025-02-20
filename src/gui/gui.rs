@@ -4,7 +4,7 @@ use iced::{Element, Task};
 
 use crate::gui::home;
 use super::home::handle_message;
-use super::request;
+use crate::request_manager::request;
 use super::widgets::request_button::{request_button_component, RequestButton};
 
 #[derive(Default)]
@@ -57,21 +57,7 @@ pub fn view(state: &State) -> Element<Message> {
             is_toggled: false,
         }),
 
-
-        request_button_component(RequestButton {
-            name: "Request 2",
-            url: "https://api.example.com",
-            method: "GET",
-            is_toggled: true,
-        }),
-
-        request_button_component(RequestButton {
-            name: "Request 3",
-            url: "https://api.example.com",
-            method: "GET",
-            is_toggled: false,
-        }),
-
+     
 
         iced::widget::Space::with_width(Fill), 
     ]
