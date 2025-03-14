@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
-enum RequestType {
+pub enum RequestType {
     GET,
     POST,
     PUT,
@@ -46,6 +46,26 @@ impl Default for RequestImpl {
     }
 }
 
+impl RequestImpl {
+    pub fn new(method_str: &str, url: &str, name: &str, body: &str) -> Self {
+        let method = match method_str.to_uppercase().as_str() {
+            "GET" => RequestType::GET,
+            "POST" => RequestType::POST,
+            "PUT" => RequestType::PUT,
+            "DELETE" => RequestType::DELETE,
+            _ => RequestType::GET,
+        };
+        
+        Self {
+            name: name.to_string(),
+            url: url.to_string(),
+            method,
+            body: body.to_string(),
+            headers: vec![],
+        }
+    }
+}
+
 
 impl Request for RequestImpl {
     fn get_name(&self) -> String {
@@ -69,9 +89,3 @@ impl Request for RequestImpl {
     }
 }
 
-fn main() {
-    let req = RequestImpl::default(); // Crea una request con valores predeterminados
-    println!("Nombre: {}", req.get_name());
-    println!("URL: {}", req.get_url());
-    println!("Método: {:?}", req.get_method());
-}

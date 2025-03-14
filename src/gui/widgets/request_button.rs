@@ -40,6 +40,7 @@ pub fn request_button_component(info: RequestButton) -> Element<'static, Message
     .on_press(Message::RequestButtonToggled(info.request))
     .width(Length::Fill)
     .style(if is_toggled {
+        println!("Toggled ON");
         button_style_toggled
     } else {
         button_style
