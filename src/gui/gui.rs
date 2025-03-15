@@ -29,14 +29,15 @@ pub enum Message {
 
 impl Default for State {
     fn default() -> Self {
-        // Crear algunas requests predeterminadas
+      
         let default_requests = vec![
             (
                 request::RequestImpl::new("GET", "https://jsonplaceholder.typicode.com/todos/1", "Get Todo", ""),
                 false
             ),
             (
-                request::RequestImpl::new("POST", "https://jsonplaceholder.typicode.com/posts", "Create Post", "{ \"title\": \"foo\", \"body\": \"bar\", \"userId\": 1 }"),
+                request::RequestImpl::new("POST", "https://jsonplaceholder.typicode.com/posts", "Create Post", 
+                "{ \"title\": \"foo\", \"body\": \"bar\", \"userId\": 1 }"),
                 false
             ),
         ];
@@ -48,19 +49,21 @@ impl Default for State {
     }
 }
 
+
 pub fn update(state: &mut State, message: Message) -> iced::Task<Message> {
     match message {
+        
         Message::TabChanged(message) => {
             state.actual_tab = message;
             Task::none()
         }
+        
         Message::MessageHome(message) => {
             handle_message(message).map(Message::MessageHome)
         }
         
         Message::RequestButtonToggled(request) => {
-            println!("RequestButtonToggled: {:?}", request);
-            
+          
             let mut found = false;
             for (req, toggled) in &mut state.requests {
                 if req.get_url() == request.get_url() && req.get_method().to_string() == request.get_method().to_string() {
@@ -69,18 +72,15 @@ pub fn update(state: &mut State, message: Message) -> iced::Task<Message> {
                     break;
                 }
             }
-            
             if !found {
                 state.requests.push((request, true));
             }
-            
             Task::none()
         }
     }
 }
 
 pub fn view(state: &State) -> Element<Message> {
-
 
     let request_buttons: Vec<_> = state.requests.iter().map(|(req, toggled)| {
         request_button_component(RequestButton {
@@ -115,10 +115,6 @@ pub fn view(state: &State) -> Element<Message> {
     
     ]
     .spacing(20);
-
-  
-
-
     container(  
         left_bar
     )

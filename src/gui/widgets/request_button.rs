@@ -1,4 +1,4 @@
-use iced::widget::{button, column, row, text};
+use iced::widget::{button, column, container, row, text, Row};
 use iced::{Element, Length};
 
 use crate::gui::styles::button_styles::{button_style, button_style_toggled};
@@ -33,17 +33,38 @@ pub fn request_button_component(info: RequestButton) -> Element<'static, Message
     let method = text(info.request.get_method().to_string());
     let is_toggled = info.is_toggled;
 
-    button(
-        column![row![method, name].spacing(10), url]
+    container(
+        row![
+            // Botón principal con la información de la solicitud
+            button(
+                column![
+                    row![method, name].spacing(10), 
+                    url
+                ]
+                .width(Length::Fill)
+            )
+            .on_press(Message::RequestButtonToggled(info.request.clone()))
             .width(Length::Fill)
+            .style(if is_toggled {
+                button_style_toggled
+            } else {
+                button_style
+            }),
+         
+            button(
+                text("Send")
+                .align_x(iced::Alignment::Center)
+                .height(Length::Fill)
+                
+            )
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .on_press(Message::RequestButtonToggled(info.request.clone()))
+            .style(button_style)
+          
+        ]
+        .spacing(10)
+        .height(Length::Shrink) 
     )
-    .on_press(Message::RequestButtonToggled(info.request))
-    .width(Length::Fill)
-    .style(if is_toggled {
-        println!("Toggled ON");
-        button_style_toggled
-    } else {
-        button_style
-    })
     .into()
 }
