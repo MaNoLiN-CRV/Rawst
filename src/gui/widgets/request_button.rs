@@ -22,10 +22,15 @@ use crate::request_manager::request::{Request, RequestImpl};
  * as the button exists, the string will exist (the pointer will exist)
  */
     
-pub struct RequestButton {
-    pub request: RequestImpl,
-    pub is_toggled: bool,
+/**
+ * Nota: No uso aqui la referencia ya que boolean ocupa solo 1 byte, es mas rápido copiar 1 byte que
+ * manejar 8 bytes de una referencia + dereferencia 
+ */
+pub struct RequestButton<'a> {
+    pub request: &'a RequestImpl,
+    pub is_toggled:  bool,
 }
+
 
 pub fn request_button_component(info: RequestButton) -> Element<'static, Message> {
     let name = text(info.request.get_name());

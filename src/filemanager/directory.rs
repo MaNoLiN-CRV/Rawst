@@ -30,5 +30,3 @@ pub fn initialize_folder_system() -> bool {
 }
 
 
-
-//Users/felixcaba/Documents/Projects/Rust/Cosmtes/src/filemanager/directory.rs

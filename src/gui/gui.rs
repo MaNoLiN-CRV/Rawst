@@ -7,12 +7,9 @@ use super::home::handle_message;
 use crate::request_manager::request::{self, Request};
 use super::widgets::request_button::{request_button_component, RequestButton};
 
-#[derive(Debug, Clone)]
-pub struct State {
-    actual_tab: Tab,
-    requests: Vec<(request::RequestImpl, bool)>,
-}
+
     
+
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub enum Tab {
     #[default]
@@ -20,6 +17,14 @@ pub enum Tab {
     Editor,
 }
 
+// State of the GUI. Interacts via messages.
+#[derive(Debug, Clone)]
+pub struct State {
+    actual_tab: Tab,
+    requests: Vec<(request::RequestImpl, bool)>,
+}
+
+// Defines the messages that can be sent to the GUI. Acts like a message bus, like events.
 #[derive(Debug, Clone)]
 pub enum Message {
     TabChanged(Tab),
@@ -27,6 +32,7 @@ pub enum Message {
     RequestButtonToggled(request::RequestImpl),
 }
 
+// Default implementation for State
 impl Default for State {
     fn default() -> Self {
       
@@ -50,18 +56,22 @@ impl Default for State {
 }
 
 
+// Updates the state of the GUI based on the message received.
 pub fn update(state: &mut State, message: Message) -> iced::Task<Message> {
     match message {
         
+        // Task none because it doesnt perform any async operation.
         Message::TabChanged(message) => {
             state.actual_tab = message;
             Task::none()
         }
-        
+
+        // Task none because it doesnt perform any async operation.
         Message::MessageHome(message) => {
             handle_message(message).map(Message::MessageHome)
         }
         
+        // On toggle request button, it will search for the request in the state and toggle it.
         Message::RequestButtonToggled(request) => {
           
             let mut found = false;
@@ -80,11 +90,14 @@ pub fn update(state: &mut State, message: Message) -> iced::Task<Message> {
     }
 }
 
+// Main GUI view. It is the main component that will be rendered.
 pub fn view(state: &State) -> Element<Message> {
 
+    // For each request in the state, it will create a request button component.
     let request_buttons: Vec<_> = state.requests.iter().map(|(req, toggled)| {
         request_button_component(RequestButton {
-            request: req.clone(),
+            
+            request: req,
             is_toggled: *toggled,
         })
     }).collect();
@@ -98,7 +111,6 @@ pub fn view(state: &State) -> Element<Message> {
 
     let search_and_name = column![
         text("COSMURL"),
-        
         
     ]
     .spacing(20);

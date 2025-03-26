@@ -14,12 +14,14 @@ pub struct StateHome {
     
 }
 
+
 pub fn home_screen() -> Element<'static, MessageHome> {
     column![
         text("Home"),
         button("Create New File").on_press(MessageHome::CreateFile)
     ].into()
 }
+
 
 pub fn handle_message(message: MessageHome) -> Task<MessageHome> {
     match message {
