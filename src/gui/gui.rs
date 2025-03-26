@@ -4,6 +4,7 @@ use iced::{Element, Task};
 
 use crate::gui::home;
 use super::home::handle_message;
+use super::widgets;
 use crate::request_manager::request::{self, Request};
 use super::widgets::request_button::{request_button_component, RequestButton};
 
@@ -32,10 +33,11 @@ pub enum Message {
     RequestButtonToggled(request::RequestImpl),
 }
 
+
+
 // Default implementation for State
 impl Default for State {
     fn default() -> Self {
-      
         let default_requests = vec![
             (
                 request::RequestImpl::new("GET", "https://jsonplaceholder.typicode.com/todos/1", "Get Todo", ""),
@@ -47,11 +49,41 @@ impl Default for State {
                 false
             ),
         ];
-        
         Self {
             actual_tab: Tab::default(),
             requests: default_requests,
         }
+    }
+}
+
+// implementa metodos dentro de state para poder acceder a los requests y hacer cosas con ellos.
+// deberia de poder refactorizar la gui y meter states distintos para cada parte de la gui
+impl State {
+
+    pub fn requests(&self) -> &[(request::RequestImpl, bool)] {
+        &self.requests
+    }
+
+    pub fn toggle_request(&mut self, request: &request::RequestImpl) -> bool {
+        let mut found = false;
+        for (req, toggled) in &mut self.requests {
+            if req.get_url() == request.get_url() && req.get_method().to_string() == request.get_method().to_string() {
+                *toggled = !*toggled;
+                found = true;
+                break;
+            }
+        }
+        
+        if !found {
+            self.requests.push((request.clone(), true));
+        }
+        
+        found
+    }
+    
+    // Método para añadir una request
+    pub fn add_request(&mut self, request: request::RequestImpl, toggled: bool) {
+        self.requests.push((request, toggled));
     }
 }
 
@@ -60,55 +92,30 @@ impl Default for State {
 pub fn update(state: &mut State, message: Message) -> iced::Task<Message> {
     match message {
         
-        // Task none because it doesnt perform any async operation.
         Message::TabChanged(message) => {
             state.actual_tab = message;
             Task::none()
         }
 
-        // Task none because it doesnt perform any async operation.
+
         Message::MessageHome(message) => {
             handle_message(message).map(Message::MessageHome)
         }
         
-        // On toggle request button, it will search for the request in the state and toggle it.
         Message::RequestButtonToggled(request) => {
-          
-            let mut found = false;
-            for (req, toggled) in &mut state.requests {
-                if req.get_url() == request.get_url() && req.get_method().to_string() == request.get_method().to_string() {
-                    *toggled = !*toggled;
-                    found = true;
-                    break;
-                }
-            }
-            if !found {
-                state.requests.push((request, true));
-            }
+            state.toggle_request(&request);
             Task::none()
         }
+      
     }
 }
 
 // Main GUI view. It is the main component that will be rendered.
 pub fn view(state: &State) -> Element<Message> {
 
-    // For each request in the state, it will create a request button component.
-    let request_buttons: Vec<_> = state.requests.iter().map(|(req, toggled)| {
-        request_button_component(RequestButton {
-            
-            request: req,
-            is_toggled: *toggled,
-        })
-    }).collect();
+    let request_buttons = 
+    widgets::requests_column::build_requests_column_widget(state);
     
-    let mut column_children = request_buttons;
-    column_children.push(iced::widget::Space::with_width(Fill).into());
-    
-    let requests_tab_bar = iced::widget::Column::with_children(column_children)
-        .spacing(5)
-        .width(Fill);
-
     let search_and_name = column![
         text("COSMURL"),
         
@@ -120,7 +127,7 @@ pub fn view(state: &State) -> Element<Message> {
         container(
             column![
                 search_and_name,
-                requests_tab_bar
+                request_buttons
             ].spacing(20)
         )
      
