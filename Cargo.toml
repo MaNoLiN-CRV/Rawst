@@ -4,18 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-iced = { version = "0.14.0-dev", default-features = false, features = [
-    "wgpu",
-    "tiny-skia",
-    "fira-sans",
-    "tokio",
-    "lazy",
-    "advanced",
-    "image",
-] }
+serde = { version = "1.0.219", features = ["derive"] }
 whoami = "1.5.2"
-
-
-[patch.crates-io]
-iced = { git = "https://github.com/iced-rs/iced", rev = "e722c4ee4f80833ba0b1013cadd546ebc3f490ce" }
-iced_core = { git = "https://github.com/iced-rs/iced", rev = "e722c4ee4f80833ba0b1013cadd546ebc3f490ce" }
