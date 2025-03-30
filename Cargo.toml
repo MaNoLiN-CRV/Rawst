@@ -6,3 +6,6 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.219", features = ["derive"] }
 whoami = "1.5.2"
+futures = "0.3.28"
+tokio = {version = "1.32.0", features = ["full"]}
+mongodb = "3.2.3"

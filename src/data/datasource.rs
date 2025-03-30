@@ -9,17 +9,11 @@ use super::data_error::DataError;
  * This trait will include methods for creating, reading, updating, and deleting records.
  */
 
-#[derive(Serialize, Deserialize)]
-struct Data {
-    id: String,
-    fields: HashMap<String, String>,
 
-}
 
-trait DataSource {
-    fn get_all(&self) -> Result<Vec<Data>, DataError>;
-    fn get_by_id(&self, id: &str) -> Result<Data, DataError>;
-    fn create(&self, data: Data) -> Result<(), DataError>;
-    fn update(&self, id: &str, data: Data) -> Result<(), DataError>;
-    fn delete(&self, id: &str) -> Result<(), DataError>;
+pub trait DataSource<T> {
+    fn get_all(&self) -> Result<Vec<T>, Box<dyn std::error::Error>>;
+    fn create(&self, item: T) -> Result<T, Box<dyn std::error::Error>>;
+    fn update(&self, id: &str, item: T) -> Result<T, Box<dyn std::error::Error>>;
+    fn delete(&self, id: &str) -> Result<bool, Box<dyn std::error::Error>>;
 }
