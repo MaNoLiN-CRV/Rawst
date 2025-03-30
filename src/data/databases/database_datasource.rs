@@ -2,8 +2,6 @@ use std::any::Any;
 
 use crate::data::datasource::DataSource;
 
-
-
 pub trait DatabaseSource<T>: DataSource<T> {
     fn get_connection(&self) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>;
     fn get_db_structure(&self) -> &Database;
@@ -45,17 +43,14 @@ impl<T> DataSource<T> for Database {
     }
 
     fn create(&self, item: T) -> Result<T, Box<dyn std::error::Error>> {
-        // Implement the logic to create a record in the database
         Ok(item)
     }
 
     fn update(&self, id: &str, item: T) -> Result<T, Box<dyn std::error::Error>> {
-        // Implement the logic to update a record in the database
         Ok(item)
     }
 
     fn delete(&self, id: &str) -> Result<bool, Box<dyn std::error::Error>> {
-        // Implement the logic to delete a record from the database
         Ok(true)
     }
 }
