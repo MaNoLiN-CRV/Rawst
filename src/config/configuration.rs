@@ -1,6 +1,5 @@
 use serde::Serialize;
 use serde::Deserialize;
-use serde_json;
 
 pub trait Configuration {
     fn get_config(&self) -> Result<String, Box<dyn std::error::Error>>;

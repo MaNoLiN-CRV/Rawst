@@ -1,14 +1,9 @@
-use std::{collections::HashMap, error::Error};
 
-use serde::{Deserialize, Serialize};
-
-use super::data_error::DataError;
 
 /**
  * Defines a Trait that will be used to interact via CRUD operations with the data source.
  * This trait will include methods for creating, reading, updating, and deleting records.
  */
-
 
 
 pub trait DataSource<T> {

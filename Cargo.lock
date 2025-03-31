@@ -9,6 +9,7 @@ dependencies = [
  "futures",
  "mongodb",
  "serde",
+ "serde_json",
  "sqlx",
  "tokio",
  "whoami",

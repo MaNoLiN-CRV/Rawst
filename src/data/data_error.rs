@@ -13,3 +13,17 @@ impl DataError {
         &self.message
     }
 }
+
+impl std::error::Error for DataError {}
+
+impl std::fmt::Display for DataError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::fmt::Debug for DataError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DataError: {}", self.message)
+    }
+}
