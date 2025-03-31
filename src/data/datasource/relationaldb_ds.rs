@@ -1,6 +1,6 @@
 use std::any::Any;
+use crate::data::datasource::DataSource;
 
-use super::datasource::DataSource;
 
 pub trait DatabaseSource<T>: DataSource<T> {
     fn get_connection(&self) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>;

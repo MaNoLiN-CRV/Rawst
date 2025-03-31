@@ -1,5 +1,5 @@
 [package]
-name = "Cosmurl"
+name = "cosmurl"
 version = "0.1.0"
 edition = "2021"
 

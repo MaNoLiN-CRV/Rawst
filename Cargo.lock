@@ -3,19 +3,6 @@
 version = 4
 
 [[package]]
-name = "Cosmurl"
-version = "0.1.0"
-dependencies = [
- "futures",
- "mongodb",
- "serde",
- "serde_json",
- "sqlx",
- "tokio",
- "whoami",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -280,6 +267,19 @@ name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
+
+[[package]]
+name = "cosmurl"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "mongodb",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "whoami",
+]
 
 [[package]]
 name = "cpufeatures"
