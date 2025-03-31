@@ -1,4 +1,4 @@
-pub mod data;
+pub mod data {
+    pub mod datasource;
+}
 pub mod filemanager;
-pub mod request_manager;
-pub mod config;
