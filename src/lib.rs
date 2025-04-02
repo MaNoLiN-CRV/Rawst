@@ -12,4 +12,6 @@ pub mod config {
     pub mod cors_config;
     pub mod documentation_config;
 }
+
+pub mod error;
 pub mod filemanager;
