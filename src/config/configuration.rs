@@ -13,10 +13,10 @@ use std::fmt;
 
 #[derive(Debug)]
 pub enum ConfigError {
-    FileNotFound(String),
-    FileReadError(String, std::io::Error),
-    DeserializeError(String, serde_json::Error),
-    ValidationError(String),
+    FileNotFound(String), // Configuration file not found
+    FileReadError(String, std::io::Error), // Error reading configuration file
+    DeserializeError(String, serde_json::Error), // Error deserializing configuration file
+    ValidationError(String), // Validation error 
 }
 
 impl fmt::Display for ConfigError {
@@ -65,6 +65,8 @@ pub struct Config {
 }
 
 impl Config {
+
+    /// Create a new Config object with default values.
     pub fn new() -> Self {
         Config {
             api_version: "1.0".to_string(),
@@ -78,6 +80,8 @@ impl Config {
         }
     }
 
+    /// Convert the Config object to an ApiConfig object.
+    /// This function will take the current Config object and convert it into an ApiConfig object.
     pub fn to_api_config(&self) -> ApiConfig {
         ApiConfig {
             database_config: self.database.clone(),
@@ -91,6 +95,8 @@ impl Config {
         }
     }
 
+    /// Create a new Config object from an ApiConfig object.
+    /// This function will take an ApiConfig object and convert it into a Config object.
     pub fn from_api_config(api_config: &ApiConfig) -> Self {
         Config {
             api_version: api_config.api_version.clone(),
@@ -106,17 +112,21 @@ impl Config {
 }
 
 impl Configuration for Config {
+
+    /// Get the configuration as a JSON string.
     fn get_config(&self) -> Result<String, Box<dyn std::error::Error>> {
         let config = serde_json::to_string_pretty(self)?;
         Ok(config)
     }
 
+    /// Set the configuration from a JSON string.
     fn set_config(&mut self, config: String) -> Result<(), Box<dyn std::error::Error>> {
         let new_config: Config = serde_json::from_str(&config)?;
         *self = new_config;
         Ok(())
     }
 
+    /// Load configuration from a file.
     fn load_from_file(&mut self, path: &str) -> Result<(), ConfigError> {
         if !Path::new(path).exists() {
             return Err(ConfigError::FileNotFound(path.to_string()));
@@ -128,14 +138,17 @@ impl Configuration for Config {
         self.set_config_string(config_data)
     }
 
+    /// Save the configuration to a file.
     fn save_to_file(&self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
         let config_json = self.get_config()?;
         fs::write(path, config_json)?;
         Ok(())
     }
+
 }
 
 impl Config {
+    /// Load configuration from a string and set it to the current instance.
     fn set_config_string(&mut self, config: String) -> Result<(), ConfigError> {
         let new_config: Config = serde_json::from_str(&config)
             .map_err(|e| ConfigError::DeserializeError("config.json".to_string(), e))?;
@@ -144,7 +157,7 @@ impl Config {
         *self = new_config;
         Ok(())
     }
-
+    /// Validate the configuration.
     fn validate(&self, config: &Config) -> Result<(), ConfigError> {
         if config.server.port < 1024 || config.server.port > 65535 {
             return Err(ConfigError::ValidationError("Server port must be between 1024 and 65535".to_string()));
