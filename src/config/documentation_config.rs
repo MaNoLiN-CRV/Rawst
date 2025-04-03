@@ -1,3 +1,6 @@
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 /// Configuration for API documentation.
 pub struct DocumentationConfig {
     /// Whether to generate OpenAPI documentation.

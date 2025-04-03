@@ -1,3 +1,4 @@
+use serde::{Serialize, Deserialize};
 use crate::config::database_config::DatabaseConfig;
 use crate::config::server_config::ServerConfig;
 use crate::config::entity_config::Entity;
@@ -5,6 +6,7 @@ use crate::config::auth_config::AuthConfig;
 use crate::config::cors_config::CorsConfig;
 use crate::config::documentation_config::DocumentationConfig;
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Configuration for the entire API, including database, server, entities, authentication, and more.
 pub struct ApiConfig {
     /// Database configuration settings.

@@ -1,3 +1,6 @@
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 /// Configuration for Cross-Origin Resource Sharing (CORS).
 pub struct CorsConfig {
     /// List of allowed origins.

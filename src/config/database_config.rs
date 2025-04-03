@@ -1,5 +1,8 @@
-/// Configuration for the database connection.
+use serde::{Serialize, Deserialize};
 use std::{clone, fmt};
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+/// Configuration for the database connection.
 pub struct DatabaseConfig {
     /// Type of the database (e.g., PostgreSQL, MySQL).
     pub db_type: DatabaseType,
@@ -23,6 +26,7 @@ pub struct DatabaseConfig {
     pub ssl_enabled: bool,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Supported database types.
 pub enum DatabaseType {
     /// PostgreSQL database.
@@ -33,6 +37,12 @@ pub enum DatabaseType {
     SQLite,
     /// MongoDB database.
     MongoDB,
+}
+
+impl Default for DatabaseType {
+    fn default() -> Self {
+        DatabaseType::PostgreSQL
+    }
 }
 
 impl fmt::Display for DatabaseType {
@@ -47,17 +57,6 @@ impl fmt::Display for DatabaseType {
     
 }
 
-impl clone::Clone for DatabaseType {
-    fn clone(&self) -> Self {
-        match self {
-            DatabaseType::PostgreSQL => DatabaseType::PostgreSQL,
-            DatabaseType::MySQL => DatabaseType::MySQL,
-            DatabaseType::SQLite => DatabaseType::SQLite,
-            DatabaseType::MongoDB => DatabaseType::MongoDB,
-        }
-    }
-    
-}
 
 impl DatabaseType {
     pub fn default_port(&self) -> u16 {

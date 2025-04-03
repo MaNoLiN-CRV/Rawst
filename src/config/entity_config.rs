@@ -1,3 +1,6 @@
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Configuration for an API entity.
 pub struct Entity {
     /// Name of the entity.
@@ -20,6 +23,7 @@ pub struct Entity {
     pub pagination: Option<PaginationConfig>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Configuration for a field in an entity.
 pub struct Field {
     /// Name of the field.
@@ -40,6 +44,7 @@ pub struct Field {
     pub description: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Supported data types for fields.
 pub enum DataType {
     /// String data type.
@@ -60,6 +65,7 @@ pub enum DataType {
     JSON,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Configuration for a relationship between entities.
 pub struct Relationship {
     /// Name of the relationship.
@@ -74,6 +80,7 @@ pub struct Relationship {
     pub include_in_responses: bool,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Supported types of relationships.
 pub enum RelationshipType {
     /// One-to-one relationship.
@@ -86,6 +93,7 @@ pub enum RelationshipType {
     ManyToMany,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Configuration for endpoints related to an entity.
 pub struct EndpointConfig {
     /// Whether to generate a create endpoint.
@@ -102,6 +110,7 @@ pub struct EndpointConfig {
     pub custom_routes: Vec<CustomRoute>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Configuration for a custom route.
 pub struct CustomRoute {
     /// Path of the custom route.
@@ -112,6 +121,7 @@ pub struct CustomRoute {
     pub handler: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Supported HTTP methods.
 pub enum HttpMethod {
     /// HTTP GET method.
@@ -126,6 +136,7 @@ pub enum HttpMethod {
     DELETE,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Configuration for authorization related to an entity.
 pub struct Authorization {
     /// Whether authorization is active.
@@ -136,6 +147,7 @@ pub struct Authorization {
     pub permissions: Vec<Permission>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Configuration for a role in authorization.
 pub struct Role {
     /// Name of the role.
@@ -144,6 +156,7 @@ pub struct Role {
     pub description: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Configuration for a permission in authorization.
 pub struct Permission {
     /// Action for the permission.
@@ -152,6 +165,7 @@ pub struct Permission {
     pub subject: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Configuration for a validation related to an entity.
 pub struct Validation {
     /// Field to validate.
@@ -162,6 +176,7 @@ pub struct Validation {
     pub error_message: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Supported types of validations.
 pub enum ValidationType {
     /// Length validation with minimum and optional maximum.
@@ -176,6 +191,7 @@ pub enum ValidationType {
     Range(f64, f64),
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Configuration for pagination related to an entity.
 pub struct PaginationConfig {
     /// Default page size for pagination.
