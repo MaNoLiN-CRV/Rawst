@@ -1,10 +1,11 @@
 use serde::{Serialize, Deserialize};
-use crate::config::database_config::DatabaseConfig;
-use crate::config::server_config::ServerConfig;
-use crate::config::entity_config::Entity;
-use crate::config::auth_config::AuthConfig;
-use crate::config::cors_config::CorsConfig;
-use crate::config::documentation_config::DocumentationConfig;
+use crate::config::specific::auth_config::AuthConfig;
+use crate::config::specific::cors_config::CorsConfig;
+use crate::config::specific::documentation_config::DocumentationConfig;
+use crate::config::specific::database_config::DatabaseConfig;
+use crate::config::specific::server_config::ServerConfig;
+use crate::config::specific::entity_config::Entity;
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 /// Configuration for the entire API, including database, server, entities, authentication, and more.

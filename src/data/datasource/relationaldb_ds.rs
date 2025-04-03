@@ -1,6 +1,6 @@
 use std::any::Any;
 use crate::data::datasource::DataSource;
-use crate::config::database_config::{DatabaseConfig, DatabaseType};
+use crate::config::specific::database_config::DatabaseConfig;
 
 
 
@@ -13,6 +13,12 @@ pub trait DatabaseSource<T>: DataSource<T> {
 
 pub struct Database{
     pub config: DatabaseConfig,
+
+    // *** FELIX ***
+    // Ahi tienes todo lo que necesitas para la configuracion de la base de datos
+    // Si quieres leer mas configuracion que ha seteado el usuario, como entidades y demás
+    // usa directamente el config de la API (config::configuration::Config)
+    // *** FELIX ***
 }
 
 impl Database {
