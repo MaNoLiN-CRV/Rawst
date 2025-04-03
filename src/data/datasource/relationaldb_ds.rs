@@ -1,5 +1,7 @@
 use std::any::Any;
 use crate::data::datasource::DataSource;
+use crate::config::database_config::{DatabaseConfig, DatabaseType};
+
 
 
 pub trait DatabaseSource<T>: DataSource<T> {
@@ -9,15 +11,18 @@ pub trait DatabaseSource<T>: DataSource<T> {
     fn disconnect(&self) -> Result<(), Box<dyn std::error::Error>>;
 }
 
-pub struct Database {
-    pub name: String,
-    pub url: String,
-    pub port: u16,
-    pub username: String,
-    pub password: String,
-    pub database_name: String,
-    pub connection_timeout: u32,
+pub struct Database{
+    pub config: DatabaseConfig,
 }
+
+impl Database {
+    pub fn new(config: &DatabaseConfig) -> Self {
+        Database {
+            config: config.clone()
+        }
+    }
+}
+
 
 impl<T> DatabaseSource<T> for Database {
     fn get_connection(&self) -> Result<Box<dyn Any>, Box<dyn std::error::Error>> {
