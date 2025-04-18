@@ -11,7 +11,12 @@ impl ConnectionManager {
     ) -> Result<Box<dyn Any>, Box<dyn std::error::Error>> {
         match config.db_type {
             DatabaseType::PostgreSQL => {
+                
                 println!("Attempting to connect to PostgreSQL...");
+
+                use::sqlx::postgres::PgPoolOptions;
+                use::sqlx::postgres::PgPool;
+                use::sqlx::postgres::PgConnection;
      
                 Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::Other,
@@ -21,6 +26,10 @@ impl ConnectionManager {
             DatabaseType::MySQL => {
                 println!("Attempting to connect to MySQL...");
 
+                use::sqlx::mysql::MySqlPoolOptions;
+                use::sqlx::mysql::MySqlPool;
+                use::sqlx::mysql::MySqlConnection;
+
                 Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::Other,
                     "MySQL connection not implemented yet",
@@ -28,6 +37,10 @@ impl ConnectionManager {
             }
             DatabaseType::SQLite => {
                 println!("Attempting to connect to SQLite...");
+
+                use::sqlx::sqlite::SqlitePoolOptions;
+                use::sqlx::sqlite::SqlitePool;
+                use::sqlx::sqlite::SqliteConnection;
 
                 Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::Other,
@@ -37,6 +50,9 @@ impl ConnectionManager {
 
             DatabaseType::MongoDB => {
                 println!("Attempting to connect to MongoDB...");
+
+                
+
                 Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::Other,
                     "MongoDB connection not implemented yet",
