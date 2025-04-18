@@ -41,26 +41,7 @@ impl<T: 'static> ApiAdapter<T> {
     /// Creates a new ApiAdapter with the provided configuration and data sources
     pub fn new(config: Config, datasources: HashMap<String, Box<dyn DataSource<T>>>) -> Self {
         let mut entities = HashMap::new();
-
-        for entity in &config.entities_advanced {
-            if let Some(datasource) = datasources.get(&entity.name) {
-                // Initialize the handler manager for the entity
-                let handler_manager = ApiHandlerManager::new(config.clone(), datasource.clone());
-
-                // Get the initialized endpoints for the entity
-                let endpoints = handler_manager.initialize_endpoints(entity);
-
-                // Add the entity's API configuration to the HashMap
-                entities.insert(
-                    entity.name.clone(),
-                    EntityApi {
-                        datasource: datasource.clone(),
-                        endpoints,
-                    },
-                );
-            }
-        }
-
+        entity_mapper(&config, datasources, &mut entities);
         Self { config, entities }
     }
 
@@ -99,5 +80,30 @@ impl<T: 'static> ApiAdapter<T> {
         // Will use rocket framework
 
         Ok(())
+    }
+}
+
+fn entity_mapper<T: 'static>(
+    config: &Config,
+    datasources: HashMap<String, Box<dyn DataSource<T>>>,
+    entities: &mut HashMap<String, EntityApi<T>>,
+) {
+    for entity in &config.entities_advanced {
+        if let Some(datasource) = datasources.get(&entity.name) {
+            // Initialize the handler manager for the entity
+            let handler_manager = ApiHandlerManager::new(config.clone(), datasource.clone());
+
+            // Get the initialized endpoints for the entity
+            let endpoints = handler_manager.initialize_endpoints(entity);
+
+            // Add the entity's API configuration to the HashMap
+            entities.insert(
+                entity.name.clone(),
+                EntityApi {
+                    datasource: datasource.clone(),
+                    endpoints,
+                },
+            );
+        }
     }
 }
