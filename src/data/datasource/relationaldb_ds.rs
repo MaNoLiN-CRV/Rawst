@@ -29,10 +29,13 @@ impl Database {
     }
 }
 
-
 impl<T> DatabaseSource<T> for Database {
     fn get_connection(&self) -> Result<Box<dyn Any>, Box<dyn std::error::Error>> {
-        Ok(Box::new(()))
+  
+        let db_type = self.config.db_type.clone();
+        
+
+        Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Not implemented")))
     }
 
     fn get_db_structure(&self) -> &Database {
