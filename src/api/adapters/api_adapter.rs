@@ -1,4 +1,4 @@
-use super::api_handlers::ApiHandlerManager;
+use crate::api::handlers::api_handlers::ApiHandlerManager;
 use crate::config::configuration::Config;
 use crate::config::specific::entity_config::HttpMethod;
 use crate::data::datasource::DataSource;
@@ -83,6 +83,7 @@ impl<T: 'static> ApiAdapter<T> {
     }
 }
 
+/// Maps the entities from the configuration to their respective data sources and handlers
 fn entity_mapper<T: 'static>(
     config: &Config,
     datasources: HashMap<String, Box<dyn DataSource<T>>>,

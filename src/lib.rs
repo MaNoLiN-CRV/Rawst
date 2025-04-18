@@ -19,6 +19,8 @@ pub mod config {
 pub mod api {
     pub mod adapters {
         pub mod api_adapter;
+    }
+    pub mod handlers {
         pub mod api_handlers;
     }
 }
