@@ -6,7 +6,7 @@ use std::any::Any;
 pub struct ConnectionManager;
 
 impl ConnectionManager {
-    pub fn create_connection(
+    pub async fn create_connection(
         config: &DatabaseConfig,
     ) -> Result<Box<dyn Any>, Box<dyn std::error::Error>> {
         match config.db_type {
@@ -17,6 +17,13 @@ impl ConnectionManager {
                 use::sqlx::postgres::PgPoolOptions;
                 use::sqlx::postgres::PgPool;
                 use::sqlx::postgres::PgConnection;
+
+                let pool = PgPoolOptions::new()
+                    .max_connections(5)
+                    .connect(&config.connection_string)
+                    .await?;
+               
+            
      
                 Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::Other,
@@ -30,6 +37,11 @@ impl ConnectionManager {
                 use::sqlx::mysql::MySqlPool;
                 use::sqlx::mysql::MySqlConnection;
 
+                let pool = MySqlPoolOptions::new()
+                    .max_connections(5)
+                    .connect(&config.connection_string)
+                    .await?;
+
                 Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::Other,
                     "MySQL connection not implemented yet",
@@ -41,6 +53,11 @@ impl ConnectionManager {
                 use::sqlx::sqlite::SqlitePoolOptions;
                 use::sqlx::sqlite::SqlitePool;
                 use::sqlx::sqlite::SqliteConnection;
+
+                let pool = SqlitePoolOptions::new()
+                    .max_connections(5)
+                    .connect(&config.connection_string)
+                    .await?;
 
                 Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::Other,
