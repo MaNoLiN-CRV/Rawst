@@ -1,8 +1,9 @@
-use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, EndpointHandler};
+use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, ApiResponseBody, EndpointHandler};
 use crate::config::configuration::Config;
-use crate::config::specific::entity_config::{Entity, HttpMethod};
+use crate::config::specific::entity_config::Entity;
 use crate::data::datasource::DataSource;
 use crate::error::{Result, RusterApiError};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -11,7 +12,10 @@ pub struct ApiHandlerManager<T> {
     datasource: Box<dyn DataSource<T>>,
 }
 
-impl<T: 'static> ApiHandlerManager<T> {
+impl<T> ApiHandlerManager<T>
+where
+    T: Serialize + Send + Sync + 'static,
+{
     /// Creates a new ApiHandlerManager for a specific entity
     pub fn new(config: Config, datasource: Box<dyn DataSource<T>>) -> Self {
         Self { config, datasource }
@@ -39,7 +43,7 @@ impl<T: 'static> ApiHandlerManager<T> {
         }
 
         if entity.endpoints.generate_list {
-            self.register_list_endpoint(entity, &mut endpoints);
+            self.register_list_endpoint(&entity.name, &mut endpoints);
         }
 
         // Register custom routes
@@ -89,10 +93,31 @@ impl<T: 'static> ApiHandlerManager<T> {
     /// Registers a list endpoint for an entity
     fn register_list_endpoint(
         &self,
-        _entity: &Entity,
-        _endpoints: &mut HashMap<String, EndpointHandler<T>>,
+        base_path: &str,
+        endpoints: &mut HashMap<String, EndpointHandler<T>>,
     ) {
-        // TODO - Implement the logic for registering the list endpoint
+        let datasource = self.datasource.clone();
+        let endpoint_key = format!("GET:{}", base_path);
+
+        // Handler for the list endpoint
+        let handler = Arc::new(move |_request: ApiRequest| -> Result<ApiResponse<T>> {
+            match datasource.get_all() {
+                Ok(items) => {
+                    let headers = Self::default_headers();
+                    Ok(ApiResponse {
+                        status: 200,
+                        headers,
+                        body: Some(ApiResponseBody::List(items)),
+                    })
+                }
+                Err(err) => Err(Self::handle_datasource_error(err)),
+            }
+        });
+
+        // Handler and endpoint key registration
+        if endpoints.insert(endpoint_key.clone(), handler).is_some() {
+            eprintln!("Warning: Overwriting existing handler for endpoint key: {}", endpoint_key);
+        }
     }
 
     /// Registers a custom endpoint for an entity
@@ -103,6 +128,19 @@ impl<T: 'static> ApiHandlerManager<T> {
         _endpoints: &mut HashMap<String, EndpointHandler<T>>,
     ) {
         // TODO - Implement the logic for registering the custom endpoint
+    }
+
+    /// Returns default headers for API responses
+    fn default_headers() -> HashMap<String, String> {
+        let mut headers = HashMap::new();
+        headers.insert("Content-Type".to_string(), "application/json".to_string());
+        headers
+    }
+
+    /// Handles errors from the datasource and formats them into an API error
+    fn handle_datasource_error(err: impl std::fmt::Display) -> RusterApiError {
+        let error_message = format!("Error retrieving items: {}", err);
+        RusterApiError::EndpointGenerationError(error_message)
     }
 }
 

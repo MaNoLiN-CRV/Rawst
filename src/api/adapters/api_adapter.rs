@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use crate::api::handlers::api_handlers::ApiHandlerManager;
 use crate::config::configuration::Config;
 use crate::config::specific::entity_config::HttpMethod;
@@ -18,10 +20,15 @@ pub struct ApiRequest {
 }
 
 /// Represents an API response with typed data payload
+pub enum ApiResponseBody<T> {
+    Single(T),
+    List(Vec<T>),
+}
+
 pub struct ApiResponse<T> {
     pub status: u16,
     pub headers: HashMap<String, String>,
-    pub body: Option<T>,
+    pub body: Option<ApiResponseBody<T>>,
 }
 
 /// Represents a single entity's API configuration
@@ -37,7 +44,7 @@ pub struct ApiAdapter<T> {
     pub entities: HashMap<String, EntityApi<T>>,
 }
 
-impl<T: 'static> ApiAdapter<T> {
+impl<T: 'static + Serialize + Send + Sync> ApiAdapter<T> {
     /// Creates a new ApiAdapter with the provided configuration and data sources
     pub fn new(config: Config, datasources: HashMap<String, Box<dyn DataSource<T>>>) -> Self {
         let mut entities = HashMap::new();
@@ -84,7 +91,7 @@ impl<T: 'static> ApiAdapter<T> {
 }
 
 /// Maps the entities from the configuration to their respective data sources and handlers
-fn entity_mapper<T: 'static>(
+fn entity_mapper<T: 'static + Serialize + Send + Sync>(
     config: &Config,
     datasources: HashMap<String, Box<dyn DataSource<T>>>,
     entities: &mut HashMap<String, EntityApi<T>>,

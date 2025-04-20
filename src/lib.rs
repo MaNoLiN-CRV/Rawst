@@ -25,6 +25,10 @@ pub mod api {
     }
 }
 
+pub mod serialization {
+    pub mod serialization_service;
+}
+
 pub mod connection {
     pub mod connection_manager;
 }
