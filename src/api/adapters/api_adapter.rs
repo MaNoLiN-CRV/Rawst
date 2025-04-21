@@ -1,6 +1,7 @@
 use serde::Serialize;
 
-use crate::api::handlers::api_handlers::ApiHandlerManager;
+// Actualizar la importación del ApiHandlerManager a la nueva ruta
+use crate::api::handlers::manager::ApiHandlerManager;
 use crate::config::configuration::Config;
 use crate::config::specific::entity_config::HttpMethod;
 use crate::data::datasource::DataSource;
@@ -113,5 +114,13 @@ fn entity_mapper<T: 'static + Serialize + Send + Sync>(
                 },
             );
         }
+    }
+}
+
+impl<T> Clone for Box<dyn DataSource<T>> {
+    fn clone(&self) -> Self {
+        // Implement the clone logic for your DataSource
+        // This is a placeholder implementation
+        unimplemented!()
     }
 }

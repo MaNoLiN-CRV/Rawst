@@ -15,3 +15,21 @@ pub trait DataSource<T>: Send + Sync {
     fn update(&self, id: &str, item: T) -> Result<T, Box<dyn std::error::Error>>;
     fn delete(&self, id: &str) -> Result<bool, Box<dyn std::error::Error>>;
 }
+
+impl<T> DataSource<T> for Box<dyn DataSource<T>> {
+    fn get_all(&self) -> Result<Vec<T>, Box<dyn std::error::Error>> {
+        (**self).get_all()
+    }
+
+    fn create(&self, item: T) -> Result<T, Box<dyn std::error::Error>> {
+        (**self).create(item)
+    }
+
+    fn update(&self, id: &str, item: T) -> Result<T, Box<dyn std::error::Error>> {
+        (**self).update(id, item)
+    }
+
+    fn delete(&self, id: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        (**self).delete(id)
+    }
+}

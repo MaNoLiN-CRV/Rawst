@@ -16,15 +16,29 @@ pub mod config {
     }
 }
 
-pub mod api {
+pub mod api{
+    
     pub mod adapters {
         pub mod api_adapter;
+ 
     }
     pub mod handlers {
-        pub mod api_handlers;
+        pub mod manager;
+        pub mod common{
+            pub mod utils;
+        }
+        pub mod crud {
+            pub mod create;
+            pub mod delete;
+            pub mod read;
+            pub mod update;
+            pub mod list;
+        }
+        pub mod custom {
+            pub mod routes;
+        }
     }
 }
-
 pub mod serialization {
     pub mod serialization_service;
 }
