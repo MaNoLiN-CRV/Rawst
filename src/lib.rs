@@ -1,5 +1,6 @@
 pub mod data {
     pub mod datasource;
+    pub mod datasource_factory;
 }
 
 pub mod config {
@@ -17,7 +18,7 @@ pub mod config {
 }
 
 pub mod api{
-    
+    pub mod datasource_integration;
     pub mod adapters {
         pub mod api_adapter;
  
