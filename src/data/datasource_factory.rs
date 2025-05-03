@@ -4,7 +4,7 @@ use serde::Serialize;
 use crate::config::configuration::Config;
 use crate::config::specific::database_config::DatabaseType;
 use crate::data::datasource::DataSource;
-use crate::data::datasource::relationaldb_ds::Database;
+use crate::data::datasource::relationaldb_ds::RelationalDatabase;
 
 /// Factory responsible for creating and managing datasources for entities
 /// This struct handles the creation and mapping of datasources based on configuration
@@ -41,7 +41,7 @@ impl DataSourceFactory {
         // For now, defaulting to database defined in config
         match config.database.db_type {
             DatabaseType::PostgreSQL | DatabaseType::MySQL | DatabaseType::SQLite => {
-                let db = Database::new(&config.database);
+                let db = RelationalDatabase::new(&config.database);
                 Ok(Box::new(db) as Box<dyn DataSource<T>>)
             },
             DatabaseType::MongoDB => {
@@ -51,7 +51,6 @@ impl DataSourceFactory {
                 // Ok(Box::new(mongo_db) as Box<dyn DataSource<T>>)
                 Err("MongoDB datasource not implemented".into())
             },
-            // Add additional database types as needed
         }
         
     }

@@ -2,6 +2,7 @@ use serde::Serialize;
 
 // Actualizar la importación del ApiHandlerManager a la nueva ruta
 use crate::api::handlers::manager::ApiHandlerManager;
+use crate::api::rocket::rocket_adapter;
 use crate::config::configuration::Config;
 use crate::config::specific::entity_config::HttpMethod;
 use crate::data::datasource::DataSource;
@@ -21,11 +22,14 @@ pub struct ApiRequest {
 }
 
 /// Represents an API response with typed data payload
+#[derive(Serialize)]
 pub enum ApiResponseBody<T> {
     Single(T),
     List(Vec<T>),
+    Json(T)
 }
 
+#[derive(Serialize)]
 pub struct ApiResponse<T> {
     pub status: u16,
     pub headers: HashMap<String, String>,
@@ -33,6 +37,7 @@ pub struct ApiResponse<T> {
 }
 
 /// Represents a single entity's API configuration
+
 pub struct EntityApi<T> {
     pub datasource: Box<dyn DataSource<T>>,
     pub endpoints: HashMap<String, EndpointHandler<T>>,
@@ -48,7 +53,7 @@ pub struct ApiAdapter<T> {
 impl<T: 'static + Serialize + Send + Sync> ApiAdapter<T> {
     /// Creates a new ApiAdapter with the provided configuration and data sources
     pub fn new(config: Config, datasources: HashMap<String, Box<dyn DataSource<T>>>) -> Self {
-        let mut entities = HashMap::new();
+        let mut entities = HashMap::new(); 
         entity_mapper(&config, datasources, &mut entities);
         Self { config, entities }
     }
@@ -84,10 +89,19 @@ impl<T: 'static + Serialize + Send + Sync> ApiAdapter<T> {
 
     /// Starts the API server based on the configuration
     pub fn start_server(&self) -> Result<()> {
-        // TODO - Implement the server start logic
-        // Will use rocket framework
+        // Use the Rocket adapter for server implementation
+        rocket_adapter::start_server(self.clone())
+    }
+}
 
-        Ok(())
+// Implementar Clone para ApiAdapter para poder usarlo con el adaptador de Rocket
+impl<T: 'static + Serialize + Send + Sync> Clone for ApiAdapter<T> {
+    fn clone(&self) -> Self {
+        // Crear un nuevo ApiAdapter con las mismas configuraciones pero con referencias compartidas a los datos
+        Self {
+            config: self.config.clone(),
+            entities: self.entities.clone(),
+        }
     }
 }
 
@@ -122,5 +136,14 @@ impl<T> Clone for Box<dyn DataSource<T>> {
         // Implement the clone logic for your DataSource
         // This is a placeholder implementation
         unimplemented!()
+    }
+}
+
+impl<T: Serialize + Send + Sync + 'static> Clone for EntityApi<T> {
+    fn clone(&self) -> Self {
+        Self {
+            datasource: self.datasource.clone(),
+            endpoints: self.endpoints.clone(),
+        }
     }
 }

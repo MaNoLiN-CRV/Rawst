@@ -1,5 +1,6 @@
 pub mod data {
     pub mod datasource;
+
     pub mod datasource_factory;
 }
 
@@ -18,16 +19,24 @@ pub mod config {
 }
 
 pub mod api{
+
     pub mod datasource_integration;
+
     pub mod adapters {
         pub mod api_adapter;
  
     }
+
+    pub mod rocket{
+        pub mod rocket_adapter;
+    }
+
     pub mod handlers {
         pub mod manager;
         pub mod common{
             pub mod utils;
         }
+
         pub mod crud {
             pub mod create;
             pub mod delete;
@@ -35,9 +44,11 @@ pub mod api{
             pub mod update;
             pub mod list;
         }
+
         pub mod custom {
             pub mod routes;
         }
+
     }
 }
 pub mod serialization {

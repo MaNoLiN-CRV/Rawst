@@ -25,6 +25,12 @@ pub enum RusterApiError {
 
     #[error("I/O error: {0}")]
     IoError(#[from] std::io::Error),
+
+    #[error("Not found: {0}")]
+    NotFound(String),
+
+    #[error("Server error: {0}")]
+    ServerError(String),
 }
 
 pub type Result<T> = std::result::Result<T, RusterApiError>;

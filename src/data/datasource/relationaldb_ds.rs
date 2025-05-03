@@ -6,12 +6,12 @@ use crate::config::specific::database_config::DatabaseConfig;
 
 pub trait DatabaseSource<T>: DataSource<T> {
     fn get_connection(&self) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>;
-    fn get_db_structure(&self) -> &Database;
+    fn get_db_structure(&self) -> &RelationalDatabase;
     fn connect(&self) -> Result<(), Box<dyn std::error::Error>>;
     fn disconnect(&self) -> Result<(), Box<dyn std::error::Error>>;
 }
 
-pub struct Database{
+pub struct RelationalDatabase{
     pub config: DatabaseConfig,
 
     // *** FELIX ***
@@ -21,15 +21,15 @@ pub struct Database{
     // *** FELIX ***
 }
 
-impl Database {
+impl RelationalDatabase {
     pub fn new(config: &DatabaseConfig) -> Self {
-        Database {
+        RelationalDatabase {
             config: config.clone()
         }
     }
 }
 
-impl<T> DatabaseSource<T> for Database {
+impl<T> DatabaseSource<T> for RelationalDatabase {
     fn get_connection(&self) -> Result<Box<dyn Any>, Box<dyn std::error::Error>> {
   
         let db_type = self.config.db_type.clone();
@@ -38,7 +38,7 @@ impl<T> DatabaseSource<T> for Database {
         Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Not implemented")))
     }
 
-    fn get_db_structure(&self) -> &Database {
+    fn get_db_structure(&self) -> &RelationalDatabase {
         self
     }
 
@@ -51,7 +51,7 @@ impl<T> DatabaseSource<T> for Database {
     }
 }
 
-impl<T> DataSource<T> for Database {
+impl<T> DataSource<T> for RelationalDatabase {
     fn get_all(&self) -> Result<Vec<T>, Box<dyn std::error::Error>> {
         Ok(vec![])
     }
@@ -66,5 +66,9 @@ impl<T> DataSource<T> for Database {
 
     fn delete(&self, id: &str) -> Result<bool, Box<dyn std::error::Error>> {
         Ok(true)
+    }
+    
+    fn box_clone(&self) -> Box<dyn DataSource<T>> {
+        todo!()
     }
 }

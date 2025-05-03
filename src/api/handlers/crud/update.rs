@@ -1,11 +1,11 @@
-use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, ApiResponseBody, EndpointHandler};
-use crate::api::handlers::common::utils::{default_headers, handle_datasource_error};
+use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, EndpointHandler};
+use crate::api::handlers::common::utils::default_headers;
 use crate::config::specific::entity_config::Entity;
 use crate::data::datasource::DataSource;
 use crate::error::{Result, RusterApiError};
-use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
+use serde::Serialize;
 
 /// Registers an update endpoint for an entity
 pub fn register_update_endpoint<T>(
