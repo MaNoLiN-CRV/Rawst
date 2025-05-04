@@ -6,7 +6,6 @@ use crate::error::{Result, RusterApiError};
 use crate::api::common::api_entity::ApiEntity;
 use std::collections::HashMap;
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
 
 /// Registers a create endpoint for an entity
 pub fn register_create_endpoint<T>(

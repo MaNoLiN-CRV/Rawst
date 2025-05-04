@@ -36,6 +36,7 @@ pub trait DataSource<T>: Send + Sync {
     fn create(&self, item: T) -> Result<T, Box<dyn std::error::Error>>;
     fn update(&self, id: &str, item: T) -> Result<T, Box<dyn std::error::Error>>;
     fn delete(&self, id: &str) -> Result<bool, Box<dyn std::error::Error>>;
+    fn get_by_id(&self, id: &str) -> Result<Option<T>, Box<dyn std::error::Error>>;
 
     // Método que permite la clonación de trait objects
     fn box_clone(&self) -> Box<dyn DataSource<T>>;
@@ -60,5 +61,8 @@ impl<T> DataSource<T> for Box<dyn DataSource<T>> {
 
     fn box_clone(&self) -> Box<dyn DataSource<T>> {
         (**self).box_clone()
+    }
+    fn get_by_id(&self, id: &str) -> Result<Option<T>, Box<dyn std::error::Error>> {
+        (**self).get_by_id(id)
     }
 }

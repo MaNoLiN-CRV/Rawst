@@ -67,6 +67,9 @@ impl<T> DataSource<T> for RelationalDatabase {
     fn delete(&self, id: &str) -> Result<bool, Box<dyn std::error::Error>> {
         Ok(true)
     }
+    fn get_by_id(&self, id: &str) -> Result<Option<T>, Box<dyn std::error::Error>> {
+        Ok(None)
+    }
     
     fn box_clone(&self) -> Box<dyn DataSource<T>> {
         todo!()

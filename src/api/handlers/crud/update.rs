@@ -1,12 +1,11 @@
-use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, EndpointHandler};
-use crate::api::handlers::common::utils::default_headers;
+use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, ApiResponseBody, EndpointHandler};
+use crate::api::handlers::common::utils::{default_headers, handle_datasource_error};
 use crate::config::specific::entity_config::Entity;
 use crate::data::datasource::DataSource;
 use crate::error::{Result, RusterApiError};
 use crate::api::common::api_entity::ApiEntity;
 use std::collections::HashMap;
 use std::sync::Arc;
-use serde::Serialize;
 
 /// Registers an update endpoint for an entity
 pub fn register_update_endpoint<T>(
@@ -26,15 +25,32 @@ where
             .params
             .get("id")
             .ok_or_else(|| RusterApiError::ValidationError("ID parameter missing".to_string()))?;
-
-        // TODO: Implement the deserialization of the request body
-        // and the update of the existing item
-
-        Ok(ApiResponse {
-            status: 200,
-            headers: default_headers(),
-            body: None, // <-- Should return the updated item
-        })
+        
+        // First check if the item exists
+        match datasource.get_by_id(id) {
+            Ok(Some(_)) => {
+                // Deserialize the request body into the entity type
+                let updated_item: T = serde_json::from_str(request.body.as_deref().unwrap_or("{}"))
+                    .map_err(|e| RusterApiError::BadRequest(format!("Invalid request format: {}", e)))?;
+                
+                // Attempt to update the item in the datasource
+                match datasource.update(id, updated_item) {
+                    Ok(updated_item) => {
+                        Ok(ApiResponse {
+                            status: 200,
+                            headers: default_headers(),
+                            body: Some(ApiResponseBody::Single(updated_item)),
+                        })
+                    }
+                    Err(e) => Err(RusterApiError::ServerError(format!("Failed to update item: {}", e))),
+                }
+            }
+            Ok(None) => Err(RusterApiError::EntityNotFound(format!(
+                "Item with ID {} not found",
+                id
+            ))),
+            Err(err) => Err(handle_datasource_error(err)),
+        }
     });
 
     // Handler and endpoint key registration

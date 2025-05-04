@@ -1,4 +1,5 @@
-use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, EndpointHandler};
+use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, ApiResponseBody, EndpointHandler};
+use crate::api::handlers::common::utils::{default_headers, handle_datasource_error};
 use crate::config::specific::entity_config::Entity;
 use crate::data::datasource::DataSource;
 use crate::error::{Result, RusterApiError};
@@ -25,8 +26,21 @@ where
             .get("id")
             .ok_or_else(|| RusterApiError::ValidationError("ID parameter missing".to_string()))?;
 
-        unimplemented!("Implement the deserialization of the request body and the retrieval of the item by ID");
-        
+        match datasource.get_by_id(id) {
+            Ok(Some(item)) => {
+                let headers = default_headers();
+                Ok(ApiResponse {
+                    status: 200,
+                    headers,
+                    body: Some(ApiResponseBody::Single(item)),
+                })
+            }
+            Ok(None) => Err(RusterApiError::EntityNotFound(format!(
+                "Item with ID {} not found",
+                id
+            ))),
+            Err(err) => Err(handle_datasource_error(err)),
+        }
     });
 
     // Handler and endpoint key registration
