@@ -1,5 +1,18 @@
 pub mod data {
-    pub mod datasource;
+    pub mod datasource {
+        pub mod document {
+            pub mod base;
+        }
+        pub mod file {
+            pub mod base;
+            pub mod csv;
+        }
+        pub mod relational {
+            pub mod base;
+            pub mod mariadb;
+        }
+        pub mod base;
+    }
 
     pub mod datasource_factory;
 }

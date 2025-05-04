@@ -1,7 +1,7 @@
 use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, EndpointHandler};
 use crate::api::handlers::common::utils::{default_headers, handle_datasource_error};
 use crate::config::specific::entity_config::{CustomRoute, Entity, HttpMethod};
-use crate::data::datasource::DataSource;
+use crate::data::datasource::base::DataSource;
 use crate::error::Result;
 use crate::api::common::api_entity::ApiEntity;
 use serde::Serialize;

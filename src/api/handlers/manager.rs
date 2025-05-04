@@ -3,7 +3,7 @@ use crate::api::handlers::crud::{create, delete, list, read, update};
 use crate::api::handlers::custom::routes;
 use crate::config::configuration::Config;
 use crate::config::specific::entity_config::Entity;
-use crate::data::datasource::DataSource;
+use crate::data::datasource::base::DataSource;
 use crate::api::common::api_entity::ApiEntity;
 use std::collections::HashMap;
 

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use serde::Serialize;
 use crate::config::configuration::Config;
-use crate::data::datasource::DataSource;
+use crate::data::datasource::base::DataSource;
 use crate::data::datasource_factory::DataSourceFactory;
 use crate::api::adapters::api_adapter::EntityApi;
 use crate::api::handlers::manager::ApiHandlerManager;
