@@ -29,6 +29,9 @@ pub mod api{
 
     pub mod rocket{
         pub mod rocket_adapter;
+        pub mod handlers{
+            pub mod catch_all;
+        }
     }
 
     pub mod handlers {
