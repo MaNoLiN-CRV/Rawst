@@ -3,7 +3,7 @@ use crate::api::handlers::common::utils::{default_headers, handle_datasource_err
 use crate::config::specific::entity_config::Entity;
 use crate::data::datasource::DataSource;
 use crate::error::{Result, RusterApiError};
-use serde::Serialize;
+use crate::api::common::api_entity::ApiEntity;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -13,7 +13,7 @@ pub fn register_delete_endpoint<T>(
     entity: &Entity,
     endpoints: &mut HashMap<String, EndpointHandler<T>>,
 ) where
-    T: Serialize + Send + Sync + 'static,
+    T: ApiEntity,
 {
     let base_path = format!("{}/:id", entity.name);
     let endpoint_key = format!("DELETE:{}", base_path);

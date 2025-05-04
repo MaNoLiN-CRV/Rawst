@@ -3,6 +3,7 @@ use crate::api::handlers::common::utils::{default_headers, handle_datasource_err
 use crate::config::specific::entity_config::{CustomRoute, Entity, HttpMethod};
 use crate::data::datasource::DataSource;
 use crate::error::Result;
+use crate::api::common::api_entity::ApiEntity;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -15,14 +16,14 @@ pub fn register_custom_endpoint<T>(
     endpoints: &mut HashMap<String, EndpointHandler<T>>,
 )
 where
-    T: Serialize + Send + Sync + 'static,
+    T: ApiEntity,
 {
     let path = format!("{}{}", entity.name, custom_route.path);
     let endpoint_key = format!("{:?}:{}", custom_route.method, path);
 
     let method = custom_route.method.clone();
 
-    let handler = Arc::new(move |request: ApiRequest| -> Result<ApiResponse<T>> {
+    let handler = Arc::new(move |_request: ApiRequest| -> Result<ApiResponse<T>> {
         match method {
             HttpMethod::GET => {
             }

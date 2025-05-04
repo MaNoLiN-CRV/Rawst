@@ -1,5 +1,6 @@
-use crate::api::adapters::api_adapter::{ApiAdapter, ApiAdapterTrait, ApiResponse, ApiResponseBody}; // Added ApiResponseBody
+use crate::api::adapters::api_adapter::{ApiAdapter, ApiAdapterTrait, ApiResponse, ApiResponseBody};
 use crate::error::{Result, RusterApiError};
+use crate::api::common::api_entity::ApiEntity;
 use rocket::{Request, Response};
 use rocket::http::{ContentType, Status as RocketStatus};
 use rocket::response::{self, Responder};
@@ -12,7 +13,7 @@ use std::sync::Arc;
 use crate::api::rocket::handlers::catch_all;
 
 // Structure to hold the API adapter for use in Rocket routes - now public
-pub struct RocketApiState<T: 'static + Serialize + Send + Sync> {
+pub struct RocketApiState<T: ApiEntity> {
     pub api_adapter: Arc<dyn ApiAdapterTrait<T> + Send + Sync>,
 }
 
@@ -65,7 +66,7 @@ impl<'r, T: Serialize> Responder<'r, 'static> for ApiResponseWrapper<T> {
 }
 
 // Main function to start the Rocket server
-pub fn start_server<T: 'static + Serialize + Send + Sync>(api_adapter: ApiAdapter<T>) -> Result<()> {
+pub fn start_server<T: ApiEntity>(api_adapter: ApiAdapter<T>) -> Result<()> {
 
     let rocket_api_state = RocketApiState {
         api_adapter: Arc::new(api_adapter),

@@ -19,6 +19,9 @@ pub enum RusterApiError {
 
     #[error("Validation error: {0}")]
     ValidationError(String),
+    
+    #[error("Bad request: {0}")]
+    BadRequest(String),
 
     #[error("Authentication error: {0}")]
     AuthError(String),

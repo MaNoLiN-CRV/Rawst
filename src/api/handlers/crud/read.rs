@@ -2,9 +2,9 @@ use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, EndpointHandler
 use crate::config::specific::entity_config::Entity;
 use crate::data::datasource::DataSource;
 use crate::error::{Result, RusterApiError};
+use crate::api::common::api_entity::ApiEntity;
 use std::collections::HashMap;
 use std::sync::Arc;
-use serde::Serialize;
 
 /// Registers a read endpoint for an entity
 pub fn register_read_endpoint<T>(
@@ -13,7 +13,7 @@ pub fn register_read_endpoint<T>(
     endpoints: &mut HashMap<String, EndpointHandler<T>>,
 )
 where
-    T: Serialize + Send + Sync + 'static,
+    T: ApiEntity,
 {
     let base_path = format!("{}/:id", entity.name);
     let endpoint_key = format!("GET:{}", base_path);

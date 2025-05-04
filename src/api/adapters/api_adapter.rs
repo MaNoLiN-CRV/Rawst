@@ -7,6 +7,7 @@ use crate::config::configuration::Config;
 use crate::config::specific::entity_config::HttpMethod;
 use crate::data::datasource::DataSource;
 use crate::error::{Result, RusterApiError};
+use crate::api::common::api_entity::ApiEntity;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -57,7 +58,7 @@ pub struct ApiAdapter<T> {
     pub entities: HashMap<String, EntityApi<T>>,
 }
 
-impl<T: 'static + Serialize + Send + Sync> ApiAdapter<T> {
+impl<T: ApiEntity> ApiAdapter<T> {
     /// Creates a new ApiAdapter with the provided configuration and data sources
     pub fn new(config: Config, datasources: HashMap<String, Box<dyn DataSource<T>>>) -> Self {
         let mut entities = HashMap::new(); 
@@ -73,7 +74,7 @@ impl<T: 'static + Serialize + Send + Sync> ApiAdapter<T> {
 }
 
 // Implement the ApiAdapterTrait for the ApiAdapter struct
-impl<T: 'static + Serialize + Send + Sync> ApiAdapterTrait<T> for ApiAdapter<T> {
+impl<T: ApiEntity> ApiAdapterTrait<T> for ApiAdapter<T> {
     /// Handles an API request and returns a response
     fn handle_request(&self, request: ApiRequest) -> Result<ApiResponse<T>> {
         let entity_name = request
@@ -105,7 +106,7 @@ impl<T: 'static + Serialize + Send + Sync> ApiAdapterTrait<T> for ApiAdapter<T> 
 }
 
 // Implementar Clone para ApiAdapter para poder usarlo con el adaptador de Rocket
-impl<T: 'static + Serialize + Send + Sync> Clone for ApiAdapter<T> {
+impl<T: ApiEntity> Clone for ApiAdapter<T> {
     fn clone(&self) -> Self {
         // Crear un nuevo ApiAdapter con las mismas configuraciones pero con referencias compartidas a los datos
         Self {
@@ -116,7 +117,7 @@ impl<T: 'static + Serialize + Send + Sync> Clone for ApiAdapter<T> {
 }
 
 /// Maps the entities from the configuration to their respective data sources and handlers
-fn entity_mapper<T: 'static + Serialize + Send + Sync>(
+fn entity_mapper<T: ApiEntity>(
     config: &Config,
     datasources: HashMap<String, Box<dyn DataSource<T>>>,
     entities: &mut HashMap<String, EntityApi<T>>,
@@ -149,7 +150,7 @@ impl<T> Clone for Box<dyn DataSource<T>> {
     }
 }
 
-impl<T: Serialize + Send + Sync + 'static> Clone for EntityApi<T> {
+impl<T: ApiEntity> Clone for EntityApi<T> {
     fn clone(&self) -> Self {
         Self {
             datasource: self.datasource.clone(),

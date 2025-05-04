@@ -27,6 +27,11 @@ pub mod api{
  
     }
 
+    pub mod common{
+        pub mod api_entity;
+    
+    }
+
     pub mod rocket{
         pub mod rocket_adapter;
         pub mod tests {

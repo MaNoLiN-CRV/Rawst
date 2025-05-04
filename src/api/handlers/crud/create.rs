@@ -1,11 +1,12 @@
-use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, EndpointHandler};
+use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, ApiResponseBody, EndpointHandler};
 use crate::api::handlers::common::utils::default_headers;
 use crate::config::specific::entity_config::Entity;
 use crate::data::datasource::DataSource;
 use crate::error::{Result, RusterApiError};
+use crate::api::common::api_entity::ApiEntity;
 use std::collections::HashMap;
 use std::sync::Arc;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Registers a create endpoint for an entity
 pub fn register_create_endpoint<T>(
@@ -14,25 +15,42 @@ pub fn register_create_endpoint<T>(
     endpoints: &mut HashMap<String, EndpointHandler<T>>,
 )
 where
-    T: Serialize + Send + Sync + 'static,
+    T: ApiEntity,
 {
     let base_path = &entity.name;
     let endpoint_key = format!("POST:{}", base_path);
-
+    
+    // Create a thread-safe clone of the datasource for the handler
+    let ds = datasource.box_clone();
+    
     // Handler for the create endpoint
     let handler = Arc::new(move |request: ApiRequest| -> Result<ApiResponse<T>> {
-        // TODO: Implement the deserialization of the request body
-        // and the creation of the new item
+        // Validate that we have a request body
+        let body = match &request.body {
+            Some(b) if !b.is_empty() => b,
+            _ => return Err(RusterApiError::BadRequest("Request body is required".to_string())),
+        };
 
-        Ok(ApiResponse {
-            status: 201,
-            headers: default_headers(),
-            body: None, // <-- Should return the created item
-        })
+        // Deserialize the request body into the entity type
+        let new_item: T = serde_json::from_str(body).map_err(|e| {
+            RusterApiError::BadRequest(format!("Invalid request format: {}", e))
+        })?;
+        
+        // Attempt to create the item in the datasource
+        match ds.create(new_item) {
+            Ok(created_item) => {
+                Ok(ApiResponse {
+                    status: 201,
+                    headers: default_headers(),
+                    body: Some(ApiResponseBody::Single(created_item)),
+                })
+            },
+            Err(e) => {
+                Err(RusterApiError::ServerError(format!("Failed to create item: {}", e)))
+            }
+        }
     });
 
-    // Handler and endpoint key registration
-    if endpoints.insert(endpoint_key.clone(), handler).is_some() {
-        eprintln!("Warning: Overwriting existing handler for endpoint key: {}", endpoint_key);
-    }
+    // Register the handler for this endpoint
+    endpoints.insert(endpoint_key, handler);
 }

@@ -4,7 +4,7 @@ use crate::api::handlers::custom::routes;
 use crate::config::configuration::Config;
 use crate::config::specific::entity_config::Entity;
 use crate::data::datasource::DataSource;
-use serde::Serialize;
+use crate::api::common::api_entity::ApiEntity;
 use std::collections::HashMap;
 
 pub struct ApiHandlerManager<T> {
@@ -14,7 +14,7 @@ pub struct ApiHandlerManager<T> {
 
 impl<T> ApiHandlerManager<T>
 where
-    T: Serialize + Send + Sync + 'static,
+    T: ApiEntity,
 {
     /// Creates a new ApiHandlerManager for a specific entity
     pub fn new(config: Config, datasource: Box<dyn DataSource<T>>) -> Self {
