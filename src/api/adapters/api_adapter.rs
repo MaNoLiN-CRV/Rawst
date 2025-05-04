@@ -43,6 +43,13 @@ pub struct EntityApi<T> {
     pub endpoints: HashMap<String, EndpointHandler<T>>,
 }
 
+/// Defines the API adapter interface for handling API operations
+/// This trait is used for both the actual implementation and for mocking in tests
+pub trait ApiAdapterTrait<T> {
+    /// Handles an API request and returns a response
+    fn handle_request(&self, request: ApiRequest) -> Result<ApiResponse<T>>;
+}
+
 /// ApiAdapter serves as the main interface for handling API operations.
 /// It acts as a bridge between the configuration and the data sources for each entity.
 pub struct ApiAdapter<T> {
@@ -58,8 +65,17 @@ impl<T: 'static + Serialize + Send + Sync> ApiAdapter<T> {
         Self { config, entities }
     }
 
+    /// Starts the API server based on the configuration
+    pub fn start_server(&self) -> Result<()> {
+        // Use the Rocket adapter for server implementation
+        rocket_adapter::start_server(self.clone())
+    }
+}
+
+// Implement the ApiAdapterTrait for the ApiAdapter struct
+impl<T: 'static + Serialize + Send + Sync> ApiAdapterTrait<T> for ApiAdapter<T> {
     /// Handles an API request and returns a response
-    pub fn handle_request(&self, request: ApiRequest) -> Result<ApiResponse<T>> {
+    fn handle_request(&self, request: ApiRequest) -> Result<ApiResponse<T>> {
         let entity_name = request
             .path
             .split('/')
@@ -85,12 +101,6 @@ impl<T: 'static + Serialize + Send + Sync> ApiAdapter<T> {
                 entity_name
             )))
         }
-    }
-
-    /// Starts the API server based on the configuration
-    pub fn start_server(&self) -> Result<()> {
-        // Use the Rocket adapter for server implementation
-        rocket_adapter::start_server(self.clone())
     }
 }
 

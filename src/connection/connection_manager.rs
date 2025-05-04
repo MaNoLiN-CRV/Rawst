@@ -1,8 +1,7 @@
 use crate::config::specific::database_config::{DatabaseConfig, DatabaseType};
 use std::any::Any;
-// Importa los crates necesarios para cada tipo de base de datos (ej: sqlx, diesel)
-// Es mejor mover estos 'use' al nivel superior del módulo y usar cfg(feature = "...")
-// como se sugirió anteriormente si usas features de Cargo.
+// Import necessary crates for each database type (e.g., sqlx, diesel)
+// as suggested previously if using Cargo features.
 
 pub struct ConnectionManager;
 

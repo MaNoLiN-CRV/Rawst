@@ -1,4 +1,4 @@
-use crate::api::adapters::api_adapter::{ApiAdapter, ApiResponse};
+use crate::api::adapters::api_adapter::{ApiAdapter, ApiAdapterTrait, ApiResponse, ApiResponseBody}; // Added ApiResponseBody
 use crate::error::{Result, RusterApiError};
 use rocket::{Request, Response};
 use rocket::http::{ContentType, Status as RocketStatus};
@@ -13,7 +13,7 @@ use crate::api::rocket::handlers::catch_all;
 
 // Structure to hold the API adapter for use in Rocket routes - now public
 pub struct RocketApiState<T: 'static + Serialize + Send + Sync> {
-    pub api_adapter: Arc<ApiAdapter<T>>,
+    pub api_adapter: Arc<dyn ApiAdapterTrait<T> + Send + Sync>,
 }
 
 // Custom responder to handle our API responses - now public
@@ -24,8 +24,16 @@ impl<'r, T: Serialize> Responder<'r, 'static> for ApiResponseWrapper<T> {
         let api_response = self.0;
         let status = RocketStatus::from_code(api_response.status).unwrap_or(RocketStatus::Ok);
         
+        // Serialization of the body , there are 3 types of body
+        // 1. Json
+        // 2. Single
+        // 3. List
         let body = match api_response.body {
-            Some(body) => match serde_json::to_string(&body) {
+            Some(ApiResponseBody::Json(value)) => match serde_json::to_string(&value) { // Json
+                Ok(json) => json,
+                Err(_) => r#"{"error": "Failed to serialize response"}"#.to_string(),
+            },
+            Some(body) => match serde_json::to_string(&body) { // Single or List
                 Ok(json) => json,
                 Err(_) => r#"{"error": "Failed to serialize response"}"#.to_string(),
             },

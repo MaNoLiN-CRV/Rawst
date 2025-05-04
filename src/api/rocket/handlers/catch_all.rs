@@ -114,7 +114,7 @@ async fn body_to_string(body: rocket::Data<'_>)
 }
 
 /// Common request processing logic
-async fn process_request(api_request: ApiRequest, state: &State<RocketApiState<serde_json::Value>>) 
+pub async fn process_request(api_request: ApiRequest, state: &State<RocketApiState<serde_json::Value>>) 
 -> ApiResponse<serde_json::Value> {
     // Process the request using our API adapter
     let result = state.api_adapter.handle_request(api_request);
