@@ -32,12 +32,12 @@ pub mod api{
         pub mod tests {
             #[cfg(test)]
             pub mod rocket_adapter_test;
-        }
-        pub mod handlers{
-            pub mod catch_all;
-            
             #[cfg(test)]
             pub mod catch_all_test;
+        }
+        pub mod handlers{
+            pub mod catch_all;   
+        
         }
     }
 

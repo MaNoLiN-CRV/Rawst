@@ -3,8 +3,7 @@ use crate::api::rocket::handlers::catch_all::{self, get_handler, post_handler, p
 use crate::api::rocket::rocket_adapter::RocketApiState;
 use crate::config::specific::entity_config::HttpMethod;
 use crate::error::{Result, RusterApiError};
-use mockall::predicate::*;
-use mockall::*;
+use mockall::mock;
 use rocket::http::Status;
 use rocket::local::asynchronous::Client as AsyncClient;
 use rocket::State;
