@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 // Actualizar la importación del ApiHandlerManager a la nueva ruta
 use crate::api::handlers::manager::ApiHandlerManager;
@@ -22,7 +22,7 @@ pub struct ApiRequest {
 }
 
 /// Represents an API response with typed data payload
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub enum ApiResponseBody<T> {
     Single(T),
     List(Vec<T>),

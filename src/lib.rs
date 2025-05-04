@@ -29,6 +29,10 @@ pub mod api{
 
     pub mod rocket{
         pub mod rocket_adapter;
+        pub mod tests {
+            #[cfg(test)]
+            pub mod rocket_adapter_test;
+        }
         pub mod handlers{
             pub mod catch_all;
             
