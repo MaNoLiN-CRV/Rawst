@@ -10,6 +10,10 @@ pub mod data {
         pub mod relational {
             pub mod base;
             pub mod mariadb;
+            pub mod tests{
+                #[cfg(test)]
+                pub mod mariadb_test;
+            }
         }
         pub mod base;
     }

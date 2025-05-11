@@ -1,4 +1,5 @@
 use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, ApiResponseBody};
+use crate::api::common::api_entity::ApiEntity;
 use crate::config::specific::entity_config::HttpMethod;
 use crate::error::RusterApiError;
 use rocket::data::ToByteUnit;
@@ -12,6 +13,7 @@ use std::path::PathBuf;
 use crate::api::rocket::rocket_adapter::RocketApiState;
 use crate::api::rocket::rocket_adapter::ApiResponseWrapper;
 
+impl ApiEntity for serde_json::Value {}
 /// Catch-all handler for GET requests
 #[rocket::get("/<path..>")]
 pub async fn get_handler(path: PathBuf, state: &State<RocketApiState<serde_json::Value>>) 

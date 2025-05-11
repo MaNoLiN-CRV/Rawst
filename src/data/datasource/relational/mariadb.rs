@@ -185,7 +185,6 @@ impl MariaDbDatasource {
                     let val: Option<bool> = row.try_get(column_name).unwrap_or(None);
                     val.map(Value::Bool)
                 },
-                // Add more types as needed
                 _ => {
                     // For unknown types, try as string
                     let val: Option<String> = row.try_get(column_name).unwrap_or(None);

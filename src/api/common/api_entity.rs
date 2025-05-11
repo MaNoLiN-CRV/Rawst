@@ -15,7 +15,12 @@ pub trait ApiEntity: Serialize + Send + Sync + 'static + for<'de> Deserialize<'d
 }
 
 // Implement ApiEntity for any type that satisfies its super traits
-impl<T> ApiEntity for T 
-where 
-    T: Serialize + Send + Sync + 'static + for<'de> Deserialize<'de> + Clone
-{}
+// ---- START: MODIFICATION ----
+// Remove this blanket implementation to avoid conflicts when specific
+// implementations are also provided for types like `mariadb_test::TestUser`.
+//
+// impl<T> ApiEntity for T 
+// where 
+//     T: Serialize + Send + Sync + 'static + for<'de> Deserialize<'de> + Clone
+// {}
+// ---- END: MODIFICATION ----

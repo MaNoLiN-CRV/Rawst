@@ -5,9 +5,12 @@ use rocket::local::blocking::LocalResponse;
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 
-use crate::api::adapters::api_adapter::{ApiResponse, ApiResponseBody};
+use crate::api::{adapters::api_adapter::{ApiResponse, ApiResponseBody}, common::api_entity::ApiEntity};
 use crate::api::rocket::rocket_adapter::{ApiResponseWrapper, RocketApiState};
 use std::sync::Arc;
+
+// Implement ApiEntity for TestUser
+impl ApiEntity for TestUser {}
 
 // Mock for RocketApiState is used in the configuration test
 mock! {
