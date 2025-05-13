@@ -11,8 +11,19 @@ const JsonPreview: React.FC<Props> = ({ json }) => {
   
   useEffect(() => {
     try {
+      // Verificar si hay datos para debug
+      const hasEntities = json?.entities_basic && Array.isArray(json.entities_basic);
+      console.log(`JsonPreview recibió datos: ${hasEntities ? 'SI' : 'NO'}, entidades: ${hasEntities ? json.entities_basic.length : 0}`);
+      
+      if (hasEntities && json.entities_basic.length > 0) {
+        console.log("Entidades en JSON:", json.entities_basic);
+      } else {
+        console.warn("⚠️ JSON sin entidades o vacío");
+      }
+      
       setFormattedJson(JSON.stringify(json, null, 2));
     } catch (e) {
+      console.error("Error al formatear JSON:", e);
       setFormattedJson('Error parsing JSON');
     }
   }, [json]);
