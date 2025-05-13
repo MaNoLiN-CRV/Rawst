@@ -388,7 +388,9 @@ mod integration_tests {
     #[ignore]
     async fn test_crud_cycle() -> Result<(), Box<dyn Error>> {
         DB_SETUP.call_once(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(setup_test_database_table());
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(setup_test_database_table());
+            });
         });
 
         let datasource = get_configured_datasource()?;
@@ -439,7 +441,9 @@ mod integration_tests {
     #[ignore]
     async fn test_get_non_existent_entity() -> Result<(), Box<dyn Error>> {
         DB_SETUP.call_once(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(setup_test_database_table());
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(setup_test_database_table());
+            });
         });
         let datasource = get_configured_datasource()?;
         let result : Option<TestUser> = datasource.get_by_id("non_existent_id_12345")?;
@@ -451,7 +455,9 @@ mod integration_tests {
     #[ignore]
     async fn test_update_non_existent_entity() -> Result<(), Box<dyn Error>> {
         DB_SETUP.call_once(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(setup_test_database_table());
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(setup_test_database_table());
+            });
         });
         let datasource = get_configured_datasource()?;
         let user_update = create_test_user("update_non_existent");
@@ -472,7 +478,9 @@ mod integration_tests {
     #[ignore]
     async fn test_delete_non_existent_entity() -> Result<(), Box<dyn Error>> {
         DB_SETUP.call_once(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(setup_test_database_table());
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(setup_test_database_table());
+            });
         });
         let datasource = get_configured_datasource()?;
         let result = DataSource::<TestUser>::delete(&datasource, "id_does_not_exist_either")?;

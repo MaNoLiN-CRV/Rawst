@@ -1,8 +1,6 @@
 use std::any::Any;
 use std::error::Error;
-use crate::api::common::api_entity::ApiEntity;
 use crate::data::datasource::base::{DataSource, DatabaseCommon};
-use serde::{Serialize, de::DeserializeOwned};
 
 /// Trait for document-based datasources like MongoDB, CouchDB, etc.
 pub trait DocumentSource<T>: DataSource<T> + DatabaseCommon {
