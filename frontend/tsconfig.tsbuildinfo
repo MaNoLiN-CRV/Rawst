@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/DatabaseConnection.tsx","./src/components/EntityConfig.tsx","./src/components/EntitySelector.tsx","./src/components/JsonPreview.tsx","./src/components/MainMenu.tsx"],"version":"5.8.3"}

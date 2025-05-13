@@ -52,5 +52,13 @@
       "digestAlgorithm": "sha256",
       "timestampUrl": ""
     }
+  },
+  "plugins": {
+    "shell": {
+      "all": false,
+      "execute": true,
+      "sidecar": true,
+      "open": true
+    }
   }
 }
