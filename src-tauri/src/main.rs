@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs;
 use std::path::Path;
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DbConfig {
@@ -135,6 +136,13 @@ struct PaginationConfig {
     size_param_name: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct ApiTestRequest {
+    url: String,
+    method: String,
+    body: Option<String>,
+}
+
 #[tauri::command]
 async fn get_mariadb_tables(config: DbConfig) -> Result<Vec<TableInfo>, String> {
     let url = format!(
@@ -205,12 +213,96 @@ async fn save_configuration(config: ApiConfig) -> Result<String, String> {
     Ok(format!("Configuration saved to {:?}", config_file))
 }
 
+/// Retrieves the current API configuration
+#[tauri::command]
+async fn get_current_configuration() -> Result<ApiConfig, String> {
+    let config_dir = Path::new("config");
+    let config_file = config_dir.join("api_config.json");
+    
+    if !config_file.exists() {
+        return Err("Configuration file not found".to_string());
+    }
+    
+    let config_content = fs::read_to_string(config_file)
+        .map_err(|e| format!("Failed to read configuration file: {}", e))?;
+    
+    let config: ApiConfig = serde_json::from_str(&config_content)
+        .map_err(|e| format!("Failed to parse configuration: {}", e))?;
+    
+    Ok(config)
+}
+
+/// Tests an API endpoint with the given request
+#[tauri::command]
+async fn test_api_endpoint(url: String, method: String, body: Option<String>) -> Result<String, String> {
+    println!("Testing API endpoint: {} {}", method, url);
+    
+    let client = reqwest::Client::new();
+    
+    let mut request_builder = match method.to_uppercase().as_str() {
+        "GET" => client.get(&url),
+        "POST" => client.post(&url),
+        "PUT" => client.put(&url),
+        "DELETE" => client.delete(&url),
+        _ => return Err(format!("Unsupported HTTP method: {}", method)),
+    };
+    
+    // Add JSON content-type header if we have a body
+    if let Some(body_content) = &body {
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        request_builder = request_builder.headers(headers);
+        
+        if method.to_uppercase() == "POST" || method.to_uppercase() == "PUT" {
+            request_builder = request_builder.body(body_content.clone());
+        }
+    }
+    
+    let response = request_builder
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+    
+    let status = response.status();
+    let headers = response.headers().clone();
+    
+    // Try to get response as JSON
+    let response_text = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {}", e))?;
+    
+    // Format response as readable JSON if possible
+    let formatted_response = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response_text) {
+        serde_json::to_string_pretty(&json).unwrap_or(response_text)
+    } else {
+        response_text
+    };
+    
+    // Prepare response
+    let result = format!(
+        "Status: {} {}\n\nHeaders:\n{}\n\nBody:\n{}",
+        status.as_u16(),
+        status.canonical_reason().unwrap_or(""),
+        headers
+            .iter()
+            .map(|(k, v)| format!("{}: {}", k.as_str(), v.to_str().unwrap_or("<binary>")))
+            .collect::<Vec<String>>()
+            .join("\n"),
+        formatted_response
+    );
+    
+    Ok(result)
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             get_mariadb_tables,
             get_mariadb_table_columns,
-            save_configuration
+            save_configuration,
+            get_current_configuration,
+            test_api_endpoint
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

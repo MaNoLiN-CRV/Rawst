@@ -7,13 +7,22 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 
+/**
+ * Props for the EntitySelector component
+ */
 interface Props {
   tables: string[];
   selected: string[];
   onChange: (selected: string[]) => void;
 }
 
+/**
+ * Component for selecting tables/entities to expose as API endpoints
+ */
 const EntitySelector: React.FC<Props> = ({ tables, selected, onChange }) => {
+  /**
+   * Handles toggling a table selection
+   */
   const handleToggle = (table: string) => {
     const currentIndex = selected.indexOf(table);
     const newSelected = [...selected];
@@ -27,7 +36,7 @@ const EntitySelector: React.FC<Props> = ({ tables, selected, onChange }) => {
 
   return (
     <div style={{ maxWidth: 400, margin: '2rem auto' }}>
-      <Typography variant="h6" gutterBottom>Selecciona las tablas a exponer</Typography>
+      <Typography variant="h6" gutterBottom>Select tables to expose as API endpoints</Typography>
       <List>
         {tables.map((table) => (
           <ListItem key={table} disablePadding>
