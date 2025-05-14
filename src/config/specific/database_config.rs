@@ -5,6 +5,7 @@ use std::{clone, fmt};
 /// Configuration for the database connection.
 pub struct DatabaseConfig {
     /// Type of the database (e.g., PostgreSQL, MySQL).
+    #[serde(deserialize_with = "deserialize_db_type")]
     pub db_type: DatabaseType,
     /// Hostname or IP address of the database server.
     pub host: String,
@@ -30,12 +31,16 @@ pub struct DatabaseConfig {
 /// Supported database types.
 pub enum DatabaseType {
     /// PostgreSQL database.
+    #[serde(rename = "PostgreSQL")]
     PostgreSQL,
     /// MySQL database.
+    #[serde(rename = "MySQL")]
     MySQL,
     /// SQLite database.
+    #[serde(rename = "SQLite")]
     SQLite,
     /// MongoDB database.
+    #[serde(rename = "MongoDB")]
     MongoDB,
 }
 
@@ -54,9 +59,7 @@ impl fmt::Display for DatabaseType {
             DatabaseType::MongoDB => write!(f, "MongoDB"),
         }
     }
-    
 }
-
 
 impl DatabaseType {
     pub fn default_port(&self) -> u16 {
@@ -103,5 +106,19 @@ impl DatabaseConfig {
                 self.username, self.password, self.host, self.database_name
             ),
         }
+    }
+}
+
+fn deserialize_db_type<'de, D>(deserializer: D) -> Result<DatabaseType, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    match s.as_str() {
+        "PostgreSQL" => Ok(DatabaseType::PostgreSQL),
+        "MySQL" => Ok(DatabaseType::MySQL),
+        "SQLite" => Ok(DatabaseType::SQLite),
+        "MongoDB" => Ok(DatabaseType::MongoDB),
+        _ => Err(serde::de::Error::custom(format!("Invalid database type: {}", s))),
     }
 }

@@ -25,36 +25,51 @@ where
             .params
             .get("id")
             .ok_or_else(|| RusterApiError::ValidationError("ID parameter missing".to_string()))?;
-        
+
+        let body = match &request.body {
+            Some(b) if !b.is_empty() => b,
+            _ => return Err(RusterApiError::BadRequest("Request body is required".to_string())),
+        };
+
+        let updated_item: T = serde_json::from_str(body).map_err(|e| {
+            RusterApiError::BadRequest(format!("Invalid request format: {}", e))
+        })?;
+
         // First check if the item exists
         match datasource.get_by_id(id) {
             Ok(Some(_)) => {
-                // Deserialize the request body into the entity type
-                let updated_item: T = serde_json::from_str(request.body.as_deref().unwrap_or("{}"))
-                    .map_err(|e| RusterApiError::BadRequest(format!("Invalid request format: {}", e)))?;
-                
-                // Attempt to update the item in the datasource
+                // Item exists, proceed with update
                 match datasource.update(id, updated_item) {
-                    Ok(updated_item) => {
+                    Ok(item) => {
+                        let headers = default_headers();
                         Ok(ApiResponse {
                             status: 200,
-                            headers: default_headers(),
-                            body: Some(ApiResponseBody::Single(updated_item)),
+                            headers,
+                            body: Some(ApiResponseBody::Single(item)),
                         })
                     }
-                    Err(e) => Err(RusterApiError::ServerError(format!("Failed to update item: {}", e))),
+                    Err(err) => Err(handle_datasource_error(err)),
                 }
             }
-            Ok(None) => Err(RusterApiError::EntityNotFound(format!(
-                "Item with ID {} not found",
-                id
-            ))),
+            Ok(None) => {
+                // Item doesn't exist
+                Err(RusterApiError::EntityNotFound(format!(
+                    "Item with ID {} not found",
+                    id
+                )))
+            }
             Err(err) => Err(handle_datasource_error(err)),
         }
     });
 
     // Handler and endpoint key registration
-    if endpoints.insert(endpoint_key.clone(), handler).is_some() {
+    if endpoints.insert(endpoint_key.clone(), handler.clone()).is_some() {
         eprintln!("Warning: Overwriting existing handler for endpoint key: {}", endpoint_key);
+    }
+    
+    // Also register with a full API path to handle both cases
+    let api_endpoint_key = format!("PUT:api/{}", base_path);
+    if endpoints.insert(api_endpoint_key.clone(), handler.clone()).is_some() {
+        eprintln!("Warning: Overwriting existing handler for endpoint key: {}", api_endpoint_key);
     }
 }

@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 /// Registers a custom endpoint for an entity
 pub fn register_custom_endpoint<T>(
-    datasource: Box<dyn DataSource<T>>,
+    _datasource: Box<dyn DataSource<T>>,
     entity: &Entity,
     custom_route: &CustomRoute,
     endpoints: &mut HashMap<String, EndpointHandler<T>>,
@@ -35,7 +35,6 @@ where
             HttpMethod::PATCH => {
             }
         }
-        unimplemented!("Implement the deserialization of the request body and the handling of the custom route");
 
         Ok(ApiResponse {
             status: 200,

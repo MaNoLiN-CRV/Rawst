@@ -10,9 +10,14 @@ export interface TableInfo {
 export interface DbConfig {
   host: string;
   port: number;
-  user: string;
+  username: string;
   password: string;
-  database: string;
+  database_name: string;
+  db_type: "PostgreSQL" | "MySQL" | "SQLite" | "MongoDB";
+  connection_string: string;
+  ssl_enabled: boolean;
+  max_connections?: number;
+  timeout_seconds?: number;
 }
 
 /**
@@ -35,8 +40,21 @@ export const useDatabaseOperations = (addLog: (message: string) => void) => {
     setError(undefined);
     
     try {
-      addLog(`Connecting to ${config.host}:${config.port}/${config.database}...`);
-      const result = await invoke<TableInfo[]>('get_mariadb_tables', { config });
+      addLog(`Connecting to ${config.host}:${config.port}/${config.database_name}...`);
+      // Create a connection config object for Tauri
+      const connectionConfig = {
+        host: config.host,
+        port: config.port,
+        username: config.username,
+        password: config.password,
+        database_name: config.database_name,
+        db_type: config.db_type,
+        connection_string: config.connection_string,
+        ssl_enabled: config.ssl_enabled,
+        max_connections: config.max_connections || 10,
+        timeout_seconds: config.timeout_seconds || 30
+      };
+      const result = await invoke<TableInfo[]>('get_mariadb_tables', { config: connectionConfig });
       
       addLog(`Connection successful. Tables found: ${result.length}`);
       setTables(result.map(t => t.name));
@@ -72,12 +90,26 @@ export const useDatabaseOperations = (addLog: (message: string) => void) => {
       try {
         const fieldsResult: { [table: string]: string[] } = {};
         
+        // Create a connection config object for Tauri
+        const connectionConfig = {
+          host: dbConfig.host,
+          port: dbConfig.port,
+          username: dbConfig.username,
+          password: dbConfig.password,
+          database_name: dbConfig.database_name,
+          db_type: dbConfig.db_type,
+          connection_string: dbConfig.connection_string,
+          ssl_enabled: dbConfig.ssl_enabled,
+          max_connections: dbConfig.max_connections || 10,
+          timeout_seconds: dbConfig.timeout_seconds || 30
+        };
+        
         // Fetch columns for each selected table
         for (const table of selected) {
           addLog(`Getting columns for table: ${table}...`);
           
           const request = {
-            config: dbConfig,
+            config: connectionConfig,
             table: table
           };
           
@@ -194,33 +226,58 @@ export const useDatabaseOperations = (addLog: (message: string) => void) => {
     try {
       addLog("Saving JSON configuration...");
       
+      // Log the current JSON state
+      console.log("Configuration to save:", 
+        "database:", Boolean(configJson.database), 
+        "entities_basic:", Array.isArray(configJson.entities_basic) ? configJson.entities_basic.length : 0);
+      
+      // Deep copy to avoid modifying the original
+      const configToSave = JSON.parse(JSON.stringify(configJson));
+      
       // Verify that entities exist in the configuration
-      if (configJson.entities_basic.length === 0) {
+      if (!configToSave.entities_basic || !Array.isArray(configToSave.entities_basic) || configToSave.entities_basic.length === 0) {
+        console.error("No entities found in configuration");
         addLog("⚠️ WARNING: JSON has no entities");
+        return false;
+      }
+      
+      // Verify each entity has the required properties
+      let isValid = true;
+      configToSave.entities_basic.forEach((entity: any, index: number) => {
+        if (!entity.name || !entity.table_name || !Array.isArray(entity.fields)) {
+          console.error(`Entity at index ${index} is missing required properties:`, entity);
+          addLog(`⚠️ ERROR: Entity at index ${index} is invalid`);
+          isValid = false;
+        }
+      });
+      
+      if (!isValid) {
+        addLog("⚠️ ERROR: Configuration contains invalid entities");
+        setError("Configuration contains invalid entities");
         return false;
       }
       
       // Show a preview of the JSON to be saved
       addLog("📝 Sending JSON:");
-      addLog(`- API: ${configJson.api_version}`);
-      addLog(`- Entities: ${configJson.entities_basic.length}`);
-      if (configJson.entities_basic.length > 0) {
-        configJson.entities_basic.forEach((entity: any, i: number) => {
+      addLog(`- API: ${configToSave.api_version}`);
+      addLog(`- Entities: ${configToSave.entities_basic.length}`);
+      if (configToSave.entities_basic.length > 0) {
+        configToSave.entities_basic.forEach((entity: any, i: number) => {
           addLog(`  [${i+1}] ${entity.name}: ${entity.fields.length} fields`);
         });
       }
       
       // Save to the backend
-      const result = await invoke<string>('save_configuration', { config: configJson });
+      console.log("Invoking save_configuration Tauri command...");
+      const result = await invoke<string>('save_configuration', { config: configToSave });
+      console.log("Save result:", result);
       addLog(`✅ Configuration saved: ${result}`);
-      alert("Configuration saved successfully: " + result);
       return true;
     } catch (e: any) {
       const errorMsg = e?.toString() || 'Error saving configuration';
-      addLog(`❌ Error saving: ${errorMsg}`);
       console.error("Error saving configuration:", e);
+      addLog(`ERROR: ${errorMsg}`);
       setError(errorMsg);
-      alert("Error saving configuration: " + errorMsg);
       return false;
     } finally {
       setLoading(false);
@@ -238,7 +295,9 @@ export const useDatabaseOperations = (addLog: (message: string) => void) => {
     handleConnect,
     handleSelectTables,
     handleConfigChange,
-    saveConfiguration
+    saveConfiguration,
+    setEntityConfig,
+    setDbConfig
   };
 };
 

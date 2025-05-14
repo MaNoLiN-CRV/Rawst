@@ -43,10 +43,19 @@ pub fn register_delete_endpoint<T>(
     });
 
     // Handler and endpoint key registration
-    if endpoints.insert(endpoint_key.clone(), handler).is_some() {
+    if endpoints.insert(endpoint_key.clone(), handler.clone()).is_some() {
         eprintln!(
             "Warning: Overwriting existing handler for endpoint key: {}",
             endpoint_key
+        );
+    }
+    
+    // Also register with a full API path to handle both cases
+    let api_endpoint_key = format!("DELETE:api/{}", base_path);
+    if endpoints.insert(api_endpoint_key.clone(), handler.clone()).is_some() {
+        eprintln!(
+            "Warning: Overwriting existing handler for endpoint key: {}",
+            api_endpoint_key
         );
     }
 }

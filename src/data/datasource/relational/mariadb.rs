@@ -33,14 +33,32 @@ impl MariaDbDatasource {
 
     /// Configures the mappings between entities and tables
     pub fn configure_entity_mappings(&mut self, entities: &[Entity]) -> Result<(), Box<dyn Error>> {
+        println!("Configuring entity mappings for {} entities", entities.len());
+        
+        // Initialize database connection first
+        if self.pool.is_none() {
+            println!("Initializing database connection...");
+            self.initialize_connection()?;
+            println!("Database connection initialized successfully");
+        }
+        
+        // Process each entity
         for entity in entities {
+            println!("Processing entity: {}", entity.name);
             let mapping = create_table_mapping(entity);
+            println!("Created mapping for entity {}: table={}, fields={}", 
+                    entity.name, 
+                    mapping.table_name,
+                    mapping.fields.len());
             self.entity_mappings.insert(entity.name.clone(), mapping);
         }
         
-        // Initialize database connection if necessary
-        if self.pool.is_none() {
-            self.initialize_connection()?;
+        println!("Entity mappings configured successfully. Total mappings: {}", self.entity_mappings.len());
+        for (name, mapping) in &self.entity_mappings {
+            println!("  - Entity: {}, Table: {}, Fields: {}", 
+                    name, 
+                    mapping.table_name,
+                    mapping.fields.len());
         }
         
         Ok(())
@@ -49,18 +67,22 @@ impl MariaDbDatasource {
     /// Initializes the database connection
     fn initialize_connection(&mut self) -> Result<(), Box<dyn Error>> {
         let connection_url = self.config.make_url();
+        println!("Connecting to database with URL: {}", connection_url);
         
         // Connect to database using tokio runtime
         let pool = self.runtime.block_on(async {
+            println!("Creating connection pool...");
             MySqlPoolOptions::new()
                 .max_connections(self.config.max_connections.unwrap_or(5))
                 .connect(&connection_url)
                 .await
                 .map_err(|e| {
+                    eprintln!("Failed to connect to database: {}", e);
                     DataSourceError::ConnectionError(format!("Error connecting to MariaDB: {}", e))
                 })
         })?;
         
+        println!("Connection pool created successfully");
         self.pool = Some(pool);
         Ok(())
     }

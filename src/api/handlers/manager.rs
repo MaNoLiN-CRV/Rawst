@@ -8,7 +8,7 @@ use crate::api::common::api_entity::ApiEntity;
 use std::collections::HashMap;
 
 pub struct ApiHandlerManager<T> {
-    config: Config,
+    _config: Config,
     datasource: Box<dyn DataSource<T>>,
 }
 
@@ -18,7 +18,7 @@ where
 {
     /// Creates a new ApiHandlerManager for a specific entity
     pub fn new(config: Config, datasource: Box<dyn DataSource<T>>) -> Self {
-        Self { config, datasource }
+        Self { _config: config, datasource }
     }
 
     /// Initializes all endpoints for a specific entity based on its configuration

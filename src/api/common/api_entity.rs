@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::any::type_name;
+use serde_json::Value;
 
 // ApiEntity trait that defines common operations for API entities
 pub trait ApiEntity: Serialize + Send + Sync + 'static + for<'de> Deserialize<'de> + Clone {
@@ -14,13 +15,13 @@ pub trait ApiEntity: Serialize + Send + Sync + 'static + for<'de> Deserialize<'d
     }
 }
 
-// Implement ApiEntity for any type that satisfies its super traits
-// ---- START: MODIFICATION ----
-// Remove this blanket implementation to avoid conflicts when specific
-// implementations are also provided for types like `mariadb_test::TestUser`.
-//
-// impl<T> ApiEntity for T 
-// where 
-//     T: Serialize + Send + Sync + 'static + for<'de> Deserialize<'de> + Clone
-// {}
-// ---- END: MODIFICATION ----
+// Specific implementation for serde_json::Value
+impl ApiEntity for Value {
+    // Override the default implementation
+    fn entity_name() -> String {
+        // This method won't be called in practice, as we'll be using entity names from config
+        // But we provide it to satisfy the trait
+        "JsonValue".to_string()
+    }
+}
+

@@ -27,7 +27,7 @@ pub struct EntityBasic {
     pub name: String,
     pub table_name: Option<String>,
     pub fields: Vec<FieldBasic>,
-    pub authentication_required: bool,
+    pub authentication: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

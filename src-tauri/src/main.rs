@@ -8,14 +8,36 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+// Import the main library
+use rawst::{
+    config::{
+        configuration::Config,
+        specific::{
+            server_config::ServerConfig,
+            database_config::DatabaseConfig,
+            cors_config::CorsConfig,
+            documentation_config::DocumentationConfig,
+        },
+        shared::EntityBasic,
+    },
+    api::adapters::api_adapter::ApiAdapter,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DbConfig {
     host: String,
     port: u16,
-    user: String,
+    username: String,
     password: String,
-    database: String,
+    database_name: String,
+    db_type: String,
+    connection_string: String,
+    ssl_enabled: bool,
+    max_connections: Option<u32>,
+    timeout_seconds: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -34,27 +56,8 @@ struct ApiConfig {
     api_version: String,
     api_prefix: String,
     server: ServerConfig,
-    database: DbConfig,
+    database: DatabaseConfig,
     entities_basic: Vec<EntityBasic>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-struct ServerConfig {
-    host: String,
-    port: u16,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-struct EntityBasic {
-    name: String,
-    table_name: String,
-    fields: Vec<FieldConfig>,
-    relationships: Vec<RelationshipConfig>,
-    endpoints: EndpointConfig,
-    authentication: bool,
-    authorization: AuthorizationConfig,
-    validations: Vec<ValidationConfig>,
-    pagination: PaginationConfig,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -143,11 +146,15 @@ struct ApiTestRequest {
     body: Option<String>,
 }
 
+// Add server state tracking
+static SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
+static SERVER_ERROR: Mutex<Option<String>> = Mutex::new(None);
+
 #[tauri::command]
 async fn get_mariadb_tables(config: DbConfig) -> Result<Vec<TableInfo>, String> {
     let url = format!(
         "mysql://{}:{}@{}:{}/{}",
-        config.user, config.password, config.host, config.port, config.database
+        config.username, config.password, config.host, config.port, config.database_name
     );
 
     let pool = Pool::new(url.as_str()).map_err(|e| e.to_string())?;
@@ -172,7 +179,7 @@ async fn get_mariadb_tables(config: DbConfig) -> Result<Vec<TableInfo>, String> 
 async fn get_mariadb_table_columns(request: TableColumnsRequest) -> Result<Vec<String>, String> {
     let url = format!(
         "mysql://{}:{}@{}:{}/{}",
-        request.config.user, request.config.password, request.config.host, request.config.port, request.config.database
+        request.config.username, request.config.password, request.config.host, request.config.port, request.config.database_name
     );
 
     let pool = Pool::new(url.as_str()).map_err(|e| e.to_string())?;
@@ -198,7 +205,26 @@ async fn save_configuration(config: ApiConfig) -> Result<String, String> {
     println!("Saving configuration: {:?}", config);
     println!("Entities count: {}", config.entities_basic.len());
     
-    let config_json = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
+    // Ensure server config has all required fields
+    let server_config = ServerConfig {
+        host: config.server.host,
+        port: config.server.port,
+        request_timeout_seconds: config.server.request_timeout_seconds,
+        max_payload_size_mb: config.server.max_payload_size_mb,
+        rate_limiting: config.server.rate_limiting,
+        logging_level: config.server.logging_level,
+    };
+
+    // Create a new config with all required fields
+    let config_to_save = ApiConfig {
+        api_version: config.api_version,
+        api_prefix: config.api_prefix,
+        server: server_config,
+        database: config.database,
+        entities_basic: config.entities_basic,
+    };
+    
+    let config_json = serde_json::to_string_pretty(&config_to_save).map_err(|e| e.to_string())?;
     
     // Get the current directory
     let config_dir = Path::new("config");
@@ -295,6 +321,119 @@ async fn test_api_endpoint(url: String, method: String, body: Option<String>) ->
     Ok(result)
 }
 
+/// Starts the API server with the current configuration
+#[tauri::command]
+async fn start_api_server() -> Result<String, String> {
+    println!("Starting API server...");
+    
+    // Check if server is already running
+    if SERVER_RUNNING.load(Ordering::SeqCst) {
+        return Err("Server is already running".to_string());
+    }
+    
+    // Get the current configuration
+    let config = get_current_configuration().await?;
+    
+    // Validate database configuration
+    if !validate_database_config(&config.database).await {
+        return Err("Invalid database configuration".to_string());
+    }
+    
+    // Convert the configuration to the format expected by the API server
+    let api_config = Config {
+        api_version: config.api_version,
+        api_prefix: Some(config.api_prefix),
+        server: ServerConfig {
+            host: config.server.host,
+            port: config.server.port,
+            request_timeout_seconds: config.server.request_timeout_seconds,
+            max_payload_size_mb: config.server.max_payload_size_mb,
+            rate_limiting: config.server.rate_limiting,
+            logging_level: config.server.logging_level,
+        },
+        database: DatabaseConfig {
+            db_type: config.database.db_type.clone(),
+            host: config.database.host.clone(),
+            port: Some(config.database.port.unwrap_or(3306) as u16),
+            database_name: config.database.database_name.clone(),
+            username: config.database.username.clone(),
+            password: config.database.password.clone(),
+            connection_string: config.database.connection_string.clone(),
+            max_connections: config.database.max_connections,
+            timeout_seconds: config.database.timeout_seconds,
+            ssl_enabled: config.database.ssl_enabled,
+        },
+        entities_basic: config.entities_basic,
+        entities_advanced: vec![],
+        auth: None,
+        cors: CorsConfig::default(),
+        documentation: DocumentationConfig::default(),
+    };
+    
+    // Set server as starting
+    SERVER_RUNNING.store(true, Ordering::SeqCst);
+    *SERVER_ERROR.lock().unwrap() = None;
+    
+    // Start the API server in a new thread
+    std::thread::spawn(move || {
+        match ApiAdapter::<serde_json::Value>::new(api_config, std::collections::HashMap::new()).start_server() {
+            Ok(_) => {
+                println!("API server started successfully");
+            }
+            Err(e) => {
+                println!("Error starting API server: {:?}", e);
+                *SERVER_ERROR.lock().unwrap() = Some(e.to_string());
+                SERVER_RUNNING.store(false, Ordering::SeqCst);
+            }
+        }
+    });
+    
+    // Wait a bit to check if server started successfully
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    
+    if let Some(error) = SERVER_ERROR.lock().unwrap().as_ref() {
+        SERVER_RUNNING.store(false, Ordering::SeqCst);
+        Err(format!("Failed to start server: {}", error))
+    } else {
+        Ok("API server started successfully".to_string())
+    }
+}
+
+async fn validate_database_config(config: &DatabaseConfig) -> bool {
+    let url = format!(
+        "mysql://{}:{}@{}:{}/{}",
+        config.username,
+        config.password,
+        config.host,
+        config.port.unwrap_or(3306),
+        config.database_name
+    );
+
+    match Pool::new(url.as_str()) {
+        Ok(pool) => {
+            match pool.get_conn() {
+                Ok(_) => true,
+                Err(_) => false
+            }
+        }
+        Err(_) => false
+    }
+}
+
+/// Gets the server status
+#[tauri::command]
+async fn get_server_status() -> Result<String, String> {
+    if SERVER_RUNNING.load(Ordering::SeqCst) {
+        if let Some(error) = SERVER_ERROR.lock().unwrap().as_ref() {
+            Ok(format!("error: {}", error))
+        } else {
+            Ok("running".to_string())
+        }
+    } else {
+        Ok("stopped".to_string())
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -302,7 +441,9 @@ fn main() {
             get_mariadb_table_columns,
             save_configuration,
             get_current_configuration,
-            test_api_endpoint
+            test_api_endpoint,
+            start_api_server,
+            get_server_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

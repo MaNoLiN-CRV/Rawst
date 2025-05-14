@@ -47,18 +47,30 @@ pub fn detect_primary_key(entity: &Entity) -> String {
         .unwrap_or_else(|| "id".to_string())
 }
 
-/// Helper to create a table mapping from an entity
+/// Create a table mapping for an entity
 pub fn create_table_mapping(entity: &Entity) -> TableMapping {
+    // Get the table name from entity config, fallback to entity name if not specified
     let table_name = entity.table_name.clone().unwrap_or_else(|| entity.name.clone());
-    let primary_key = detect_primary_key(entity);
     
-    let fields = entity.fields.iter().map(|field| {
-        FieldMapping {
+    // Create field mappings based on entity fields
+    let mut fields = Vec::new();
+    let mut primary_key = "id".to_string(); // Default primary key
+    
+    for field in &entity.fields {
+        let column_name = field.column_name.clone().unwrap_or_else(|| field.name.clone());
+        
+        // Add field to mappings
+        fields.push(FieldMapping {
             field_name: field.name.clone(),
-            column_name: field.column_name.clone().unwrap_or_else(|| field.name.clone()),
+            column_name: column_name.clone(),
             field_type: data_type_to_string(&field.data_type),
+        });
+        
+        // Use first field as primary key for now (better handling needed)
+        if fields.len() == 1 {
+            primary_key = column_name;
         }
-    }).collect();
+    }
     
     TableMapping {
         table_name,

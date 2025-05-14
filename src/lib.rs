@@ -35,21 +35,18 @@ pub mod config {
     }
 }
 
-pub mod api{
-
+pub mod api {
     pub mod datasource_integration;
 
     pub mod adapters {
         pub mod api_adapter;
- 
     }
 
-    pub mod common{
+    pub mod common {
         pub mod api_entity;
-    
     }
 
-    pub mod rocket{
+    pub mod rocket {
         pub mod rocket_adapter;
         pub mod tests {
             #[cfg(test)]
@@ -57,15 +54,14 @@ pub mod api{
             #[cfg(test)]
             pub mod catch_all_test;
         }
-        pub mod handlers{
+        pub mod handlers {
             pub mod catch_all;   
-        
         }
     }
 
     pub mod handlers {
         pub mod manager;
-        pub mod common{
+        pub mod common {
             pub mod utils;
         }
 
@@ -80,7 +76,6 @@ pub mod api{
         pub mod custom {
             pub mod routes;
         }
-
     }
 }
 pub mod serialization {
@@ -93,3 +88,8 @@ pub mod connection {
 
 pub mod error;
 pub mod filemanager;
+pub mod request_manager;
+
+// Re-export commonly used items
+pub use error::RusterApiError;
+pub type Result<T> = std::result::Result<T, RusterApiError>;

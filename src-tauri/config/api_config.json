@@ -3,141 +3,71 @@
   "api_prefix": "/api",
   "server": {
     "host": "localhost",
-    "port": 8080
+    "port": 8000,
+    "request_timeout_seconds": 30,
+    "max_payload_size_mb": 10,
+    "rate_limiting": {
+      "requests_per_minute": 100,
+      "burst": 50
+    },
+    "logging_level": "Info"
   },
   "database": {
+    "db_type": "MySQL",
     "host": "localhost",
     "port": 3306,
-    "user": "root",
+    "database_name": "proyecto_orm",
+    "username": "root",
     "password": "manel",
-    "database": "proyecto_orm"
+    "connection_string": "mysql://root:manel@localhost:3306/proyecto_orm",
+    "max_connections": 10,
+    "timeout_seconds": 30,
+    "ssl_enabled": false
   },
   "entities_basic": [
     {
-      "name": "proyecto_sede",
-      "table_name": "proyecto_sede",
-      "fields": [
-        {
-          "name": "id_proy",
-          "column_name": "id_proy",
-          "data_type": "String",
-          "required": true,
-          "unique": false,
-          "searchable": true,
-          "default_value": null,
-          "description": null
-        },
-        {
-          "name": "id_sede",
-          "column_name": "id_sede",
-          "data_type": "String",
-          "required": true,
-          "unique": false,
-          "searchable": true,
-          "default_value": null,
-          "description": null
-        },
-        {
-          "name": "f_inicio",
-          "column_name": "f_inicio",
-          "data_type": "String",
-          "required": true,
-          "unique": false,
-          "searchable": true,
-          "default_value": null,
-          "description": null
-        },
-        {
-          "name": "f_fin",
-          "column_name": "f_fin",
-          "data_type": "String",
-          "required": true,
-          "unique": false,
-          "searchable": true,
-          "default_value": null,
-          "description": null
-        }
-      ],
-      "relationships": [],
-      "endpoints": {
-        "generate_create": true,
-        "generate_read": true,
-        "generate_update": true,
-        "generate_delete": true,
-        "generate_list": true,
-        "custom_routes": []
-      },
-      "authentication": false,
-      "authorization": {
-        "active": false,
-        "roles": [],
-        "permissions": []
-      },
-      "validations": [],
-      "pagination": {
-        "default_page_size": 10,
-        "max_page_size": 100,
-        "page_param_name": "page",
-        "size_param_name": "size"
-      }
-    },
-    {
-      "name": "empleado_datos_prof",
-      "table_name": "empleado_datos_prof",
+      "name": "empleado",
+      "table_name": "empleado",
       "fields": [
         {
           "name": "dni",
-          "column_name": "dni",
           "data_type": "String",
-          "required": true,
-          "unique": false,
-          "searchable": true,
-          "default_value": null,
-          "description": null
+          "required": true
         },
         {
-          "name": "categoria",
-          "column_name": "categoria",
+          "name": "nom_emp",
           "data_type": "String",
-          "required": true,
-          "unique": false,
-          "searchable": true,
-          "default_value": null,
-          "description": null
+          "required": true
         },
         {
-          "name": "sueldo_bruto_anual",
-          "column_name": "sueldo_bruto_anual",
+          "name": "id_depto",
           "data_type": "String",
-          "required": true,
-          "unique": false,
-          "searchable": true,
-          "default_value": null,
-          "description": null
+          "required": true
         }
       ],
-      "relationships": [],
-      "endpoints": {
-        "generate_create": true,
-        "generate_read": true,
-        "generate_update": true,
-        "generate_delete": true,
-        "generate_list": true,
-        "custom_routes": []
-      },
-      "authentication": false,
-      "authorization": {
-        "active": false,
-        "roles": [],
-        "permissions": []
-      },
-      "validations": [],
-      "pagination": {
-        "default_page_size": 10,
-        "max_page_size": 100,
-        "page_param_name": "page",
-        "size_param_name": "size"
-      }
+      "authentication": false
+    },
+    {
+      "name": "departamento",
+      "table_name": "departamento",
+      "fields": [
+        {
+          "name": "id_depto",
+          "data_type": "String",
+          "required": true
+        },
+        {
+          "name": "nom_depto",
+          "data_type": "String",
+          "required": true
+        },
+        {
+          "name": "id_sede",
+          "data_type": "String",
+          "required": true
+        }
+      ],
+      "authentication": false
     }
   ]
 }

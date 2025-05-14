@@ -51,5 +51,13 @@ where
     });
 
     // Register the handler for this endpoint
-    endpoints.insert(endpoint_key, handler);
+    if endpoints.insert(endpoint_key.clone(), handler.clone()).is_some() {
+        eprintln!("Warning: Overwriting existing handler for endpoint key: {}", endpoint_key);
+    }
+    
+    // Also register with a full API path to handle both cases
+    let api_endpoint_key = format!("POST:api/{}", base_path);
+    if endpoints.insert(api_endpoint_key.clone(), handler.clone()).is_some() {
+        eprintln!("Warning: Overwriting existing handler for endpoint key: {}", api_endpoint_key);
+    }
 }

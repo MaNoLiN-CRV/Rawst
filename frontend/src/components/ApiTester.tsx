@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { 
   Box, 
-  Container, 
   Typography, 
   Paper, 
   TextField, 
@@ -19,8 +18,7 @@ import {
   CardContent,
   Chip,
   Stack,
-  CircularProgress
-} from '@mui/material';
+  CircularProgress} from '@mui/material';
 import { invoke } from '@tauri-apps/api/core';
 
 interface TabPanelProps {
@@ -67,12 +65,17 @@ const ApiTester = () => {
   const [response, setResponse] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [tabValue, setTabValue] = useState(0);
-  const [apiUrl, setApiUrl] = useState<string>('http://localhost:8080/api');
+  const [apiUrl, setApiUrl] = useState<string>('http://localhost:8000/api');
   const [error, setError] = useState<string | null>(null);
+  const [serverStatus, setServerStatus] = useState<'stopped' | 'starting' | 'running' | 'error'>('stopped');
+  const [serverMessage, setServerMessage] = useState<string>('');
 
   useEffect(() => {
     // Load API configuration when component mounts
     fetchApiConfiguration();
+    // Start polling server status
+    const statusInterval = setInterval(checkServerStatus, 2000);
+    return () => clearInterval(statusInterval);
   }, []);
 
   const fetchApiConfiguration = async () => {
@@ -80,14 +83,138 @@ const ApiTester = () => {
       setLoading(true);
       setError(null);
       // Get the configuration from the backend
+      console.log("Fetching API configuration...");
       const config = await invoke<any>('get_current_configuration');
       
-      if (config && config.entities_basic) {
+      console.log("API configuration received:", config ? "YES" : "NO", 
+                  config && config.entities_basic ? `(${config.entities_basic.length} entities)` : "(no entities)");
+      
+      if (config && config.entities_basic && config.entities_basic.length > 0) {
+        console.log("Setting entities:", config.entities_basic.length);
         setEntities(config.entities_basic);
         
-        if (config.server) {
-          setApiUrl(`http://${config.server.host}:${config.server.port}${config.api_prefix || '/api'}`);
+        // Automatically select the first entity to make testing easier
+        if (config.entities_basic.length > 0 && config.entities_basic[0].name) {
+          const firstEntity = config.entities_basic[0].name;
+          console.log("Auto-selecting first entity:", firstEntity);
+          setSelectedEntity(firstEntity);
+          
+          // Generate endpoints for the first entity
+          const entity = config.entities_basic[0];
+          let newEndpoints: EndpointConfig[] = [];
+          
+          // Check if the entity has endpoints configuration
+          if (!entity.endpoints) {
+            console.log(`Entity ${firstEntity} has no endpoints configuration, using defaults`);
+            newEndpoints = createDefaultEndpoints(firstEntity);
+          } else {
+            // Use existing endpoint configuration
+            if (entity.endpoints?.generate_list) {
+              newEndpoints.push({
+                path: `/${firstEntity}`,
+                method: 'GET',
+                description: `Get all ${firstEntity}`
+              });
+            }
+            
+            if (entity.endpoints?.generate_read) {
+              newEndpoints.push({
+                path: `/${firstEntity}/{id}`,
+                method: 'GET',
+                description: `Get ${firstEntity} by ID`
+              });
+            }
+            
+            if (entity.endpoints?.generate_create) {
+              newEndpoints.push({
+                path: `/${firstEntity}`,
+                method: 'POST',
+                description: `Create new ${firstEntity}`
+              });
+            }
+            
+            if (entity.endpoints?.generate_update) {
+              newEndpoints.push({
+                path: `/${firstEntity}/{id}`,
+                method: 'PUT',
+                description: `Update ${firstEntity}`
+              });
+            }
+            
+            if (entity.endpoints?.generate_delete) {
+              newEndpoints.push({
+                path: `/${firstEntity}/{id}`,
+                method: 'DELETE',
+                description: `Delete ${firstEntity}`
+              });
+            }
+            
+            // Add custom routes if any
+            if (entity.endpoints?.custom_routes && entity.endpoints.custom_routes.length > 0) {
+              entity.endpoints.custom_routes.forEach((route: any) => {
+                newEndpoints.push({
+                  path: route.path,
+                  method: route.method,
+                  description: route.handler || 'Custom endpoint'
+                });
+              });
+            }
+          }
+          
+          console.log("Setting initial endpoints:", newEndpoints.length);
+          setEndpoints(newEndpoints);
+          if (newEndpoints.length > 0) {
+            setSelectedEndpoint(newEndpoints[0]);
+          }
+          
+          // Generate sample request body for POST/PUT
+          if (newEndpoints.find(e => e.method === 'POST' || e.method === 'PUT')) {
+            const sampleBody: any = {};
+            
+            // Check if entity has fields
+            if (entity.fields && Array.isArray(entity.fields) && entity.fields.length > 0) {
+              entity.fields.forEach((field: any) => {
+                if (!field || !field.name) return;
+                
+                let defaultValue: any = null;
+                
+                switch (field.data_type) {
+                  case 'String':
+                    defaultValue = `"Sample ${field.name}"`;
+                    break;
+                  case 'Integer':
+                  case 'Number':
+                    defaultValue = 0;
+                    break;
+                  case 'Boolean':
+                    defaultValue = false;
+                    break;
+                  case 'Date':
+                    defaultValue = new Date().toISOString();
+                    break;
+                  default:
+                    defaultValue = null;
+                }
+                
+                sampleBody[field.name] = defaultValue;
+              });
+            } else {
+              // Add default field if none exists
+              console.log("No fields found for entity, adding default sample field");
+              sampleBody["sample_field"] = "sample value";
+              sampleBody["id"] = 0;
+            }
+            
+            setRequestBody(JSON.stringify(sampleBody, null, 2));
+          }
+          
+          if (config.server) {
+            setApiUrl(`http://${config.server.host}:${config.server.port}${config.api_prefix || '/api'}`);
+          }
         }
+      } else {
+        console.error("No entities found in configuration");
+        setError("No API entities found in configuration. Please generate your API configuration first.");
       }
     } catch (error: any) {
       console.error('Error fetching API configuration:', error);
@@ -98,66 +225,126 @@ const ApiTester = () => {
     }
   };
 
+  const checkServerStatus = async () => {
+    try {
+      const status = await invoke<string>('get_server_status');
+      if (status.startsWith('error:')) {
+        setServerStatus('error');
+        setServerMessage(status.substring(6));
+      } else {
+        setServerStatus(status as 'stopped' | 'running');
+        if (status === 'running') {
+          setServerMessage('Server is running');
+        } else {
+          setServerMessage('');
+        }
+      }
+    } catch (error: any) {
+      console.error('Error checking server status:', error);
+      setServerStatus('error');
+      setServerMessage(error?.toString() || 'Error checking server status');
+    }
+  };
+
+  const createDefaultEndpoints = (entityName: string): EndpointConfig[] => {
+    console.log(`Creating default endpoints for entity: ${entityName}`);
+    return [
+      {
+        path: `/${entityName}`,
+        method: 'GET',
+        description: `Get all ${entityName}`
+      },
+      {
+        path: `/${entityName}/{id}`,
+        method: 'GET',
+        description: `Get ${entityName} by ID`
+      },
+      {
+        path: `/${entityName}`,
+        method: 'POST',
+        description: `Create new ${entityName}`
+      },
+      {
+        path: `/${entityName}/{id}`,
+        method: 'PUT',
+        description: `Update ${entityName}`
+      },
+      {
+        path: `/${entityName}/{id}`,
+        method: 'DELETE',
+        description: `Delete ${entityName}`
+      }
+    ];
+  };
+
   const handleEntityChange = (event: SelectChangeEvent) => {
     const entityName = event.target.value;
     setSelectedEntity(entityName);
+    setSelectedEndpoint(null);
     
     // Find the selected entity
     const entity = entities.find(e => e.name === entityName);
     
     if (entity) {
       // Generate endpoints based on entity configuration
-      const newEndpoints: EndpointConfig[] = [];
+      let newEndpoints: EndpointConfig[] = [];
       
-      if (entity.endpoints.generate_list) {
-        newEndpoints.push({
-          path: `/${entityName}`,
-          method: 'GET',
-          description: `Get all ${entityName}`
-        });
-      }
-      
-      if (entity.endpoints.generate_read) {
-        newEndpoints.push({
-          path: `/${entityName}/{id}`,
-          method: 'GET',
-          description: `Get ${entityName} by ID`
-        });
-      }
-      
-      if (entity.endpoints.generate_create) {
-        newEndpoints.push({
-          path: `/${entityName}`,
-          method: 'POST',
-          description: `Create new ${entityName}`
-        });
-      }
-      
-      if (entity.endpoints.generate_update) {
-        newEndpoints.push({
-          path: `/${entityName}/{id}`,
-          method: 'PUT',
-          description: `Update ${entityName}`
-        });
-      }
-      
-      if (entity.endpoints.generate_delete) {
-        newEndpoints.push({
-          path: `/${entityName}/{id}`,
-          method: 'DELETE',
-          description: `Delete ${entityName}`
-        });
-      }
-      
-      // Add custom routes if any
-      if (entity.endpoints.custom_routes && entity.endpoints.custom_routes.length > 0) {
-        entity.endpoints.custom_routes.forEach((route: any) => {
+      // Check if entity has endpoints configuration
+      if (!entity.endpoints) {
+        console.log(`Entity ${entityName} has no endpoints configuration, using defaults`);
+        newEndpoints = createDefaultEndpoints(entityName);
+      } else {
+        // Add null/undefined check for endpoints
+        if (entity.endpoints?.generate_list) {
           newEndpoints.push({
-            path: route.path,
-            method: route.method,
-            description: route.handler || 'Custom endpoint'
+            path: `/${entityName}`,
+            method: 'GET',
+            description: `Get all ${entityName}`
           });
-        });
+        }
+        
+        if (entity.endpoints?.generate_read) {
+          newEndpoints.push({
+            path: `/${entityName}/{id}`,
+            method: 'GET',
+            description: `Get ${entityName} by ID`
+          });
+        }
+        
+        if (entity.endpoints?.generate_create) {
+          newEndpoints.push({
+            path: `/${entityName}`,
+            method: 'POST',
+            description: `Create new ${entityName}`
+          });
+        }
+        
+        if (entity.endpoints?.generate_update) {
+          newEndpoints.push({
+            path: `/${entityName}/{id}`,
+            method: 'PUT',
+            description: `Update ${entityName}`
+          });
+        }
+        
+        if (entity.endpoints?.generate_delete) {
+          newEndpoints.push({
+            path: `/${entityName}/{id}`,
+            method: 'DELETE',
+            description: `Delete ${entityName}`
+          });
+        }
+        
+        // Add custom routes if any
+        if (entity.endpoints?.custom_routes && entity.endpoints.custom_routes.length > 0) {
+          entity.endpoints.custom_routes.forEach((route: any) => {
+            newEndpoints.push({
+              path: route.path,
+              method: route.method,
+              description: route.handler || 'Custom endpoint'
+            });
+          });
+        }
       }
       
       setEndpoints(newEndpoints);
@@ -166,29 +353,40 @@ const ApiTester = () => {
       // Generate sample request body for POST/PUT
       if (newEndpoints.find(e => e.method === 'POST' || e.method === 'PUT')) {
         const sampleBody: any = {};
-        entity.fields.forEach((field: any) => {
-          let defaultValue: any = null;
-          
-          switch (field.data_type) {
-            case 'String':
-              defaultValue = `"Sample ${field.name}"`;
-              break;
-            case 'Integer':
-            case 'Number':
-              defaultValue = 0;
-              break;
-            case 'Boolean':
-              defaultValue = false;
-              break;
-            case 'Date':
-              defaultValue = new Date().toISOString();
-              break;
-            default:
-              defaultValue = null;
-          }
-          
-          sampleBody[field.name] = defaultValue;
-        });
+        
+        // Check if entity has fields
+        if (entity.fields && Array.isArray(entity.fields) && entity.fields.length > 0) {
+          entity.fields.forEach((field: any) => {
+            if (!field || !field.name) return;
+            
+            let defaultValue: any = null;
+            
+            switch (field.data_type) {
+              case 'String':
+                defaultValue = `"Sample ${field.name}"`;
+                break;
+              case 'Integer':
+              case 'Number':
+                defaultValue = 0;
+                break;
+              case 'Boolean':
+                defaultValue = false;
+                break;
+              case 'Date':
+                defaultValue = new Date().toISOString();
+                break;
+              default:
+                defaultValue = null;
+            }
+            
+            sampleBody[field.name] = defaultValue;
+          });
+        } else {
+          // Add default field if none exists
+          console.log("No fields found for entity, adding default sample field");
+          sampleBody["sample_field"] = "sample value";
+          sampleBody["id"] = 0;
+        }
         
         setRequestBody(JSON.stringify(sampleBody, null, 2));
       } else {
@@ -276,6 +474,31 @@ const ApiTester = () => {
     }
   };
 
+  const startApiServer = async () => {
+    try {
+      setServerStatus('starting');
+      setError(null);
+      
+      console.log("Starting API server...");
+      const result = await invoke<string>('start_api_server');
+      console.log("Server start result:", result);
+      
+      setServerStatus('running');
+      setServerMessage(result);
+      
+      // After server starts, refresh the configuration
+      await fetchApiConfiguration();
+      
+      // Wait a bit and check status again
+      setTimeout(checkServerStatus, 1000);
+    } catch (error: any) {
+      console.error('Error starting API server:', error);
+      setServerStatus('error');
+      setError(error?.toString() || 'Error starting API server');
+      setServerMessage('Failed to start API server');
+    }
+  };
+
   // Method color mapping
   const getMethodColor = (method: string) => {
     switch (method) {
@@ -297,6 +520,32 @@ const ApiTester = () => {
       </Box>
       
       <Divider sx={{ mb: 4 }} />
+      
+      {/* Server Control Section */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Server Control
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Button
+            variant="contained"
+            color={serverStatus === 'running' ? 'success' : 'primary'}
+            onClick={startApiServer}
+            disabled={serverStatus === 'starting' || serverStatus === 'running'}
+            startIcon={serverStatus === 'starting' ? <CircularProgress size={20} /> : null}
+          >
+            {serverStatus === 'running' ? 'Server Running' : 'Start API Server'}
+          </Button>
+          {serverMessage && (
+            <Typography 
+              variant="body2" 
+              color={serverStatus === 'error' ? 'error' : 'text.secondary'}
+            >
+              {serverMessage}
+            </Typography>
+          )}
+        </Box>
+      </Paper>
       
       {loading && !selectedEntity && (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
@@ -482,4 +731,4 @@ const ApiTester = () => {
   );
 };
 
-export default ApiTester; 
+export default ApiTester;
