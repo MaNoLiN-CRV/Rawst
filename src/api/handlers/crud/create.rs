@@ -16,12 +16,13 @@ pub fn register_create_endpoint<T>(
 where
     T: ApiEntity,
 {
-    let base_path = &entity.name;
+    let base_path = entity.name.clone();
     let endpoint_key = format!("POST:{}", base_path);
-    
+
     // Create a thread-safe clone of the datasource for the handler
     let ds = datasource.box_clone();
-    
+    let entity_name = entity.name.clone();
+
     // Handler for the create endpoint
     let handler = Arc::new(move |request: ApiRequest| -> Result<ApiResponse<T>> {
         // Validate that we have a request body
@@ -34,9 +35,9 @@ where
         let new_item: T = serde_json::from_str(body).map_err(|e| {
             RusterApiError::BadRequest(format!("Invalid request format: {}", e))
         })?;
-        
+
         // Attempt to create the item in the datasource
-        match ds.create(new_item) {
+        match ds.create(new_item, Some(&entity_name)) {
             Ok(created_item) => {
                 Ok(ApiResponse {
                     status: 201,

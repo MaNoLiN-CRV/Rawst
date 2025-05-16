@@ -2,10 +2,11 @@ use std::process::Command;
 
 use super::request;
 
+#[allow(dead_code)]
 pub(crate) struct CurlClient;
 
 impl CurlClient {
-    
+    #[allow(dead_code)]
     pub(crate) fn execute_request(request: &impl request::Request) -> String {
 
         let headers = request.get_headers();

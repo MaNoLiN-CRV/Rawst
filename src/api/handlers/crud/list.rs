@@ -15,13 +15,18 @@ pub fn register_list_endpoint<T>(
 where
     T: ApiEntity,
 {
+    if base_path.is_empty() || base_path.contains(' ') {
+        eprintln!("Invalid base_path: {}", base_path);
+        return;
+    }
+
     // Define paths for different scenarios (with and without API prefix)
     // Full path
     let endpoint_key = format!("GET:{}", base_path);
-
+    let entity_name = base_path.to_string();
     // Handler for the list endpoint
     let handler = Arc::new(move |_request: ApiRequest| -> Result<ApiResponse<T>> {
-        match datasource.get_all() {
+        match datasource.get_all( Some(&entity_name)) {
             Ok(items) => {
                 let headers = default_headers();
                 Ok(ApiResponse {

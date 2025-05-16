@@ -1,5 +1,4 @@
 use crate::api::adapters::api_adapter::{ApiRequest, ApiResponse, ApiResponseBody};
-use crate::api::common::api_entity::ApiEntity;
 use crate::api::handlers::common::utils::default_headers;
 use crate::config::specific::entity_config::HttpMethod;
 use crate::error::RusterApiError;

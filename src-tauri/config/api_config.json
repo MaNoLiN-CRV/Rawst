@@ -26,6 +26,28 @@
   },
   "entities_basic": [
     {
+      "name": "empleado_datos_prof",
+      "table_name": "empleado_datos_prof",
+      "fields": [
+        {
+          "name": "dni",
+          "data_type": "String",
+          "required": true
+        },
+        {
+          "name": "categoria",
+          "data_type": "String",
+          "required": true
+        },
+        {
+          "name": "sueldo_bruto_anual",
+          "data_type": "String",
+          "required": true
+        }
+      ],
+      "authentication": false
+    },
+    {
       "name": "empleado",
       "table_name": "empleado",
       "fields": [
@@ -41,28 +63,6 @@
         },
         {
           "name": "id_depto",
-          "data_type": "String",
-          "required": true
-        }
-      ],
-      "authentication": false
-    },
-    {
-      "name": "departamento",
-      "table_name": "departamento",
-      "fields": [
-        {
-          "name": "id_depto",
-          "data_type": "String",
-          "required": true
-        },
-        {
-          "name": "nom_depto",
-          "data_type": "String",
-          "required": true
-        },
-        {
-          "name": "id_sede",
           "data_type": "String",
           "required": true
         }

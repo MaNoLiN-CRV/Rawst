@@ -4,19 +4,19 @@ use std::error::Error;
 /// Core trait for all CRUD operations in a data source
 pub trait DataSource<T>: Send + Sync {
     /// Gets all entities
-    fn get_all(&self) -> Result<Vec<T>, Box<dyn Error>>;
+    fn get_all(&self, entity_name_override: Option<&str>) -> Result<Vec<T>, Box<dyn Error>>;
     
     /// Creates a new entity
-    fn create(&self, item: T) -> Result<T, Box<dyn Error>>;
+    fn create(&self, item: T, entity_name_override: Option<&str>) -> Result<T, Box<dyn Error>>;
     
     /// Updates an existing entity
-    fn update(&self, id: &str, item: T) -> Result<T, Box<dyn Error>>;
+    fn update(&self, id: &str, item: T, entity_name_override: Option<&str>) -> Result<T, Box<dyn Error>>;
     
     /// Deletes an entity by its ID
-    fn delete(&self, id: &str) -> Result<bool, Box<dyn Error>>;
+    fn delete(&self, id: &str, entity_name_override: Option<&str>) -> Result<bool, Box<dyn Error>>;
     
     /// Gets an entity by its ID
-    fn get_by_id(&self, id: &str) -> Result<Option<T>, Box<dyn Error>>;
+    fn get_by_id(&self, id: &str, entity_name_override: Option<&str>) -> Result<Option<T>, Box<dyn Error>>;
 
     /// Method to clone a trait object
     fn box_clone(&self) -> Box<dyn DataSource<T>>;
@@ -24,24 +24,24 @@ pub trait DataSource<T>: Send + Sync {
 
 /// Implementation for Box<dyn DataSource<T>> to allow direct method use
 impl<T> DataSource<T> for Box<dyn DataSource<T>> {
-    fn get_all(&self) -> Result<Vec<T>, Box<dyn Error>> {
-        (**self).get_all()
+    fn get_all(&self, entity_name_override: Option<&str>) -> Result<Vec<T>, Box<dyn Error>> {
+        (**self).get_all(entity_name_override)
     }
 
-    fn create(&self, item: T) -> Result<T, Box<dyn Error>> {
-        (**self).create(item)
+    fn create(&self, item: T, entity_name_override: Option<&str>) -> Result<T, Box<dyn Error>> {
+        (**self).create(item, entity_name_override)
     }
 
-    fn update(&self, id: &str, item: T) -> Result<T, Box<dyn Error>> {
-        (**self).update(id, item)
+    fn update(&self, id: &str, item: T, entity_name_override: Option<&str>) -> Result<T, Box<dyn Error>> {
+        (**self).update(id, item, entity_name_override)
     }
 
-    fn delete(&self, id: &str) -> Result<bool, Box<dyn Error>> {
-        (**self).delete(id)
+    fn delete(&self, id: &str, entity_name_override: Option<&str>) -> Result<bool, Box<dyn Error>> {
+        (**self).delete(id, entity_name_override)
     }
 
-    fn get_by_id(&self, id: &str) -> Result<Option<T>, Box<dyn Error>> {
-        (**self).get_by_id(id)
+    fn get_by_id(&self, id: &str, entity_name_override: Option<&str>) -> Result<Option<T>, Box<dyn Error>> {
+        (**self).get_by_id(id, entity_name_override)
     }
 
     fn box_clone(&self) -> Box<dyn DataSource<T>> {

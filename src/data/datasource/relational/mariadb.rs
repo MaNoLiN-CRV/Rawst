@@ -30,6 +30,45 @@ impl MariaDbDatasource {
             runtime: Runtime::new().unwrap(),
         }
     }
+    
+    /// Normalize entity name to ensure consistent lookup across all operations
+    fn normalize_entity_name(&self, name: &str) -> String {
+        // Normalize by converting to lowercase and trimming whitespace
+        name.to_lowercase().trim().to_string()
+    }
+    
+    /// Find mapping with flexible lookup strategy
+    /// This is the centralized method to look up entity mappings with fallback options
+    fn find_entity_mapping(&self, entity_name: &str) -> Option<&TableMapping> {
+        // Always normalize the input name
+        let normalized = self.normalize_entity_name(entity_name);
+        
+        // Print debug info for difficult cases
+        if entity_name == "generic" || entity_name == "JsonValue" {
+            println!("Warning: Looking up entity with generic name '{}'. Available entities: {:?}", 
+                      entity_name, 
+                      self.entity_mappings.keys().collect::<Vec<_>>());
+        }
+        
+        // Try normalized name first (most efficient path)
+        let result = self.entity_mappings.get(&normalized)
+            // Then try original name (for backward compatibility)
+            .or_else(|| self.entity_mappings.get(entity_name))
+            // Then try as table name (additional fallback)
+            .or_else(|| {
+                // Check all mappings to see if any table_name matches
+                self.entity_mappings.values()
+                    .find(|m| self.normalize_entity_name(&m.table_name) == normalized)
+            });
+        
+        // Log the result for troubleshooting
+        if result.is_none() {
+            println!("Entity mapping not found for '{}' (normalized: '{}'). Available mappings: {:?}", 
+                      entity_name, normalized, self.entity_mappings.keys().collect::<Vec<_>>());
+        }
+        
+        result
+    }
 
     /// Configures the mappings between entities and tables
     pub fn configure_entity_mappings(&mut self, entities: &[Entity]) -> Result<(), Box<dyn Error>> {
@@ -45,12 +84,22 @@ impl MariaDbDatasource {
         // Process each entity
         for entity in entities {
             println!("Processing entity: {}", entity.name);
+            let normalized_name = self.normalize_entity_name(&entity.name);
             let mapping = create_table_mapping(entity);
             println!("Created mapping for entity {}: table={}, fields={}", 
                     entity.name, 
                     mapping.table_name,
                     mapping.fields.len());
-            self.entity_mappings.insert(entity.name.clone(), mapping);
+            // Store the mapping with the entity name from the configuration
+            self.entity_mappings.insert(normalized_name.clone(), mapping.clone());
+
+            // Store the mapping with the entity name as a fallback (for backward compatibility)
+            self.entity_mappings.insert(entity.name.clone(), mapping.clone());
+
+            // Also store it with the table name as a fallback (for backward compatibility)
+            if entity.name != mapping.table_name {
+                self.entity_mappings.insert(mapping.table_name.clone(), mapping);
+            }
         }
         
         println!("Entity mappings configured successfully. Total mappings: {}", self.entity_mappings.len());
@@ -89,10 +138,17 @@ impl MariaDbDatasource {
 
     /// Generates a SELECT SQL query 
     fn generate_select_query(&self, entity_name: &str) -> Result<String, Box<dyn Error>> {
-        let mapping = self.entity_mappings.get(entity_name)
-            .ok_or_else(|| 
-                DataSourceError::NotFound(format!("No mapping found for entity {}", entity_name))
-            )?;
+        let mapping = self.find_entity_mapping(entity_name)
+            .ok_or_else(|| {
+                // Log available mappings to help diagnose the issue
+                let available = self.entity_mappings.keys()
+                    .map(|k| k.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                
+                eprintln!("ERROR: No mapping found for '{}'. Available: {}", entity_name, available);
+                DataSourceError::NotFound(format!("No mapping found for entity '{}'", entity_name))
+            })?;
             
         let columns: Vec<String> = mapping.fields.iter()
             .map(|field| format!("`{}`", field.column_name))
@@ -103,7 +159,7 @@ impl MariaDbDatasource {
     
     /// Generates a SELECT SQL query by ID
     fn generate_select_by_id_query(&self, entity_name: &str) -> Result<String, Box<dyn Error>> {
-        let mapping = self.entity_mappings.get(entity_name)
+        let mapping = self.find_entity_mapping(entity_name)
             .ok_or_else(|| 
                 DataSourceError::NotFound(format!("No mapping found for entity {}", entity_name))
             )?;
@@ -120,10 +176,11 @@ impl MariaDbDatasource {
     
     /// Generates an INSERT SQL query
     fn generate_insert_query(&self, entity_name: &str) -> Result<String, Box<dyn Error>> {
-        let mapping = self.entity_mappings.get(entity_name)
+        let mapping = self.find_entity_mapping(entity_name)
             .ok_or_else(|| 
                 DataSourceError::NotFound(format!("No mapping found for entity {}", entity_name))
             )?;
+        
             
         let columns: Vec<String> = mapping.fields.iter()
             .map(|field| format!("`{}`", field.column_name))
@@ -141,7 +198,7 @@ impl MariaDbDatasource {
     
     /// Generates an UPDATE SQL query
     fn generate_update_query(&self, entity_name: &str) -> Result<String, Box<dyn Error>> {
-        let mapping = self.entity_mappings.get(entity_name)
+        let mapping = self.find_entity_mapping(entity_name)
             .ok_or_else(|| 
                 DataSourceError::NotFound(format!("No mapping found for entity {}", entity_name))
             )?;
@@ -159,7 +216,7 @@ impl MariaDbDatasource {
     
     /// Generates a DELETE SQL query
     fn generate_delete_query(&self, entity_name: &str) -> Result<String, Box<dyn Error>> {
-        let mapping = self.entity_mappings.get(entity_name)
+        let mapping = self.find_entity_mapping(entity_name)
             .ok_or_else(|| 
                 DataSourceError::NotFound(format!("No mapping found for entity {}", entity_name))
             )?;
@@ -172,7 +229,7 @@ impl MariaDbDatasource {
     /// Maps a MySQL row to an entity
     fn map_row_to_entity<T: ApiEntity + DeserializeOwned>(&self, row: MySqlRow, entity_name: &str) -> Result<T, Box<dyn Error>> {
         // Get the entity mapping
-        let mapping = self.entity_mappings.get(entity_name)
+        let mapping = self.find_entity_mapping(entity_name)
             .ok_or_else(|| 
                 DataSourceError::NotFound(format!("No mapping found for entity {}", entity_name))
             )?;
@@ -220,11 +277,20 @@ impl MariaDbDatasource {
         }
         
         // Convert the JSON object to our entity
-        match serde_json::from_value(Value::Object(json_object)) {
+        match serde_json::from_value(Value::Object(json_object.clone())) {
             Ok(entity) => Ok(entity),
-            Err(e) => Err(Box::new(DataSourceError::MappingError(format!(
-                "Error deserializing entity: {}", e
-            ))))
+            Err(e) => {
+                // Convert keys to strings before joining
+                let keys: Vec<String> = json_object.keys().cloned().collect();
+                let error_msg = format!(
+                    "Error deserializing entity '{}': {}. Fields available: {}", 
+                    entity_name, 
+                    e,
+                    keys.join(", ")
+                );
+                eprintln!("Deserialization error: {}", error_msg);
+                Err(Box::new(DataSourceError::MappingError(error_msg)))
+            }
         }
     }
     
@@ -234,7 +300,7 @@ impl MariaDbDatasource {
         let entity_json = serde_json::to_value(item)?;
         
         // Get the mapping for the entity
-        let mapping = self.entity_mappings.get(entity_name)
+        let mapping = self.find_entity_mapping(entity_name)
             .ok_or_else(|| 
                 DataSourceError::NotFound(format!("No mapping found for entity {}", entity_name))
             )?;
@@ -259,10 +325,56 @@ impl MariaDbDatasource {
         Ok(values)
     }
     
+    /// Validates an entity against its mapping before CRUD operations
+    fn validate_entity<T: ApiEntity + Serialize>(&self, item: &T, entity_name: &str) -> Result<(), Box<dyn Error>> {
+        // Get the mapping
+        let mapping = self.find_entity_mapping(entity_name)
+            .ok_or_else(|| DataSourceError::NotFound(
+                format!("No mapping found for entity {}", entity_name)
+            ))?;
+        
+        // Convert entity to JSON
+        let entity_json = serde_json::to_value(item)?;
+        
+        // Ensure the entity is an object
+        if let Value::Object(map) = &entity_json {
+            // Check that primary key is not missing for update operations
+            if !map.contains_key(&mapping.primary_key) {
+                eprintln!("Warning: Primary key '{}' missing from entity", mapping.primary_key);
+                // Not returning error, as it might be an insert operation
+            }
+            
+            // Check that all fields have valid types
+            for field in &mapping.fields {
+                if let Some(value) = map.get(&field.field_name) {
+                    match (field.field_type.as_str(), value) {
+                        ("string", Value::String(_)) => {},
+                        ("integer", Value::Number(n)) if n.is_i64() => {},
+                        ("float", Value::Number(_)) => {},
+                        ("boolean", Value::Bool(_)) => {},
+                        // For null values we're lenient
+                        (_, Value::Null) => {},
+                        // For mismatches, log but don't stop - might coerce later
+                        (expected, actual) => {
+                            eprintln!("Warning: Field '{}' expected type {}, but got {:?}", 
+                                    field.field_name, expected, actual);
+                        }
+                    }
+                }
+            }
+            Ok(())
+        } else {
+            Err(Box::new(DataSourceError::ValidationError(
+                "Entity must be an object".to_string()
+            )))
+        }
+    }
+
     /// Extracts the ID from an entity
+    #[allow(dead_code)]
     fn get_entity_id<T: ApiEntity + Serialize>(&self, item: &T, entity_name: &str) -> Result<String, Box<dyn Error>> {
         // Get the mapping for the entity
-        let mapping = self.entity_mappings.get(entity_name)
+        let mapping = self.find_entity_mapping(entity_name)
             .ok_or_else(|| 
                 DataSourceError::NotFound(format!("No mapping found for entity {}", entity_name))
             )?;
@@ -336,12 +448,15 @@ where
     }
 }
 
-// Implement DataSource for MariaDbDatasource
+// Modificar todos los métodos CRUD para que acepten un parámetro de nombre de entidad
 impl<T> DataSource<T> for MariaDbDatasource 
 where 
     T: ApiEntity + DeserializeOwned + Serialize + Send + Sync + 'static
 {
-    fn get_all(&self) -> Result<Vec<T>, Box<dyn Error>> {
+    fn get_all(&self, entity_name_override: Option<&str>) -> Result<Vec<T>, Box<dyn Error>> {
+        // Usar el nombre proporcionado o caer en el nombre genérico como fallback
+        let entity_name = entity_name_override.map(|s| s.to_string()).unwrap_or_else(|| T::entity_name());
+        
         // Verify that we have a connection
         let pool = match &self.pool {
             Some(p) => p,
@@ -350,9 +465,6 @@ where
             )))
         };
 
-        // Get the entity type
-        let entity_name = T::entity_name();
-        
         // Generate the SQL query
         let query = self.generate_select_query(&entity_name)?;
         
@@ -379,7 +491,8 @@ where
         Ok(results)
     }
 
-    fn get_by_id(&self, id: &str) -> Result<Option<T>, Box<dyn Error>> {
+    fn get_by_id(&self, id: &str, entity_name_override: Option<&str>) -> Result<Option<T>, Box<dyn Error>> {
+        let entity_name = entity_name_override.map(|s| s.to_string()).unwrap_or_else(|| T::entity_name());
         // Verify that we have a connection
         let pool = match &self.pool {
             Some(p) => p,
@@ -388,9 +501,6 @@ where
             )))
         };
 
-        // Get the entity type
-        let entity_name = T::entity_name();
-        
         // Generate the SQL query
         let query = self.generate_select_by_id_query(&entity_name)?;
         
@@ -416,7 +526,12 @@ where
         Ok(result)
     }
 
-    fn create(&self, item: T) -> Result<T, Box<dyn Error>> {
+    fn create(&self, item: T, entity_name_override: Option<&str>) -> Result<T, Box<dyn Error>> {
+        let entity_name = entity_name_override.map(|s| s.to_string()).unwrap_or_else(|| T::entity_name());
+        
+        // Validate the entity first
+        self.validate_entity(&item, &entity_name)?;
+        
         // Verify that we have a connection
         let pool = match &self.pool {
             Some(p) => p,
@@ -425,9 +540,6 @@ where
             )))
         };
 
-        // Get the entity type
-        let entity_name = T::entity_name();
-        
         // Generate the SQL query
         let query = self.generate_insert_query(&entity_name)?;
         
@@ -472,7 +584,8 @@ where
         Ok(item_clone)
     }
 
-    fn update(&self, id: &str, item: T) -> Result<T, Box<dyn Error>> {
+    fn update(&self, id: &str, item: T, entity_name_override: Option<&str>) -> Result<T, Box<dyn Error>> {
+        let entity_name = entity_name_override.map(|s| s.to_string()).unwrap_or_else(|| T::entity_name());
         // Verify that we have a connection
         let pool = match &self.pool {
             Some(p) => p,
@@ -481,14 +594,11 @@ where
             )))
         };
 
-        // Get the entity type
-        let entity_name = T::entity_name();
-        
         // Generate the SQL query
         let query = self.generate_update_query(&entity_name)?;
         
         // Get the mapping for the entity
-        let mapping = self.entity_mappings.get(&entity_name)
+        let mapping = self.find_entity_mapping(&entity_name)
             .ok_or_else(|| DataSourceError::NotFound(
                 format!("No mapping found for entity {}", entity_name)
             ))?;
@@ -551,7 +661,8 @@ where
         Ok(item_clone)
     }
 
-    fn delete(&self, id: &str) -> Result<bool, Box<dyn Error>> {
+    fn delete(&self, id: &str, entity_name_override: Option<&str>) -> Result<bool, Box<dyn Error>> {
+        let entity_name = entity_name_override.map(|s| s.to_string()).unwrap_or_else(|| T::entity_name());
         // Verify that we have a connection
         let pool = match &self.pool {
             Some(p) => p,
@@ -560,9 +671,6 @@ where
             )))
         };
 
-        // Get the entity type
-        let entity_name = T::entity_name();
-        
         // Generate the SQL query
         let query = self.generate_delete_query(&entity_name)?;
         

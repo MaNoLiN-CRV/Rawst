@@ -1,5 +1,5 @@
 use rawst::filemanager::file::get_config_file;
-use rawst::config::configuration::{Config, Configuration, load_configuration};
+use rawst::config::configuration::{Config, load_configuration};
 use rawst::api::adapters::api_adapter::ApiAdapter;
 use rawst::data::datasource_factory::DataSourceFactory;
 use rawst::api::common::api_entity::ApiEntity;
@@ -16,8 +16,8 @@ pub struct GenericEntity {
 }
 
 impl ApiEntity for GenericEntity {
-    fn entity_name() -> &'static str {
-        "generic"
+    fn entity_name() -> String {
+        "generic".to_string()
     }
 }
 

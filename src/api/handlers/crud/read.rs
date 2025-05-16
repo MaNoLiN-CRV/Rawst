@@ -18,6 +18,7 @@ where
 {
     let base_path = format!("{}/:id", entity.name);
     let endpoint_key = format!("GET:{}", base_path);
+    let entity_name = entity.name.clone();
 
     // Handler for the read endpoint
     let handler = Arc::new(move |request: ApiRequest| -> Result<ApiResponse<T>> {
@@ -26,7 +27,7 @@ where
             .get("id")
             .ok_or_else(|| RusterApiError::ValidationError("ID parameter missing".to_string()))?;
 
-        match datasource.get_by_id(id) {
+        match datasource.get_by_id(id, Some(&entity_name)) {
             Ok(Some(item)) => {
                 let headers = default_headers();
                 Ok(ApiResponse {

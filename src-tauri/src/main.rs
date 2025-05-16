@@ -374,9 +374,49 @@ async fn start_api_server() -> Result<String, String> {
     SERVER_RUNNING.store(true, Ordering::SeqCst);
     *SERVER_ERROR.lock().unwrap() = None;
     
+    // Create a copy of the config for the thread
+    let thread_config = api_config.clone();
+    
     // Start the API server in a new thread
     std::thread::spawn(move || {
-        match ApiAdapter::<serde_json::Value>::new(api_config, std::collections::HashMap::new()).start_server() {
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct GenericEntity {
+            #[serde(flatten)]
+            data: std::collections::HashMap<String, serde_json::Value>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            id: Option<String>,
+        }
+        
+        impl rawst::api::common::api_entity::ApiEntity for GenericEntity {
+            fn entity_name() -> String {
+                "generic".to_string()
+            }
+        }
+        
+        // Create datasources for entities
+        use rawst::data::datasource_factory::DataSourceFactory;
+        use serde_json::Value;
+        
+        let datasources = DataSourceFactory::create_datasources::<Value>(&thread_config);
+        println!("Created datasources for {} entities", datasources.len());
+        
+        // Create the adapter with the correct type parameter
+        let adapter = ApiAdapter::<Value>::new(thread_config, datasources);
+        
+        // Create a standalone runtime without any potential parent context
+        // Use Runtime instead of Builder to ensure we have a fully isolated runtime
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(rt) => rt,
+            Err(e) => {
+                println!("Failed to create runtime: {:?}", e);
+                *SERVER_ERROR.lock().unwrap() = Some(e.to_string());
+                SERVER_RUNNING.store(false, Ordering::SeqCst);
+                return;
+            }
+        };
+        
+        // Run the server in the runtime - remove block_on since start_server is not async
+        match adapter.start_server() {
             Ok(_) => {
                 println!("API server started successfully");
             }

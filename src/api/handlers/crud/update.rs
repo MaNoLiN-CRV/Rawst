@@ -18,6 +18,7 @@ where
 {
     let base_path = format!("{}/:id", entity.name);
     let endpoint_key = format!("PUT:{}", base_path);
+    let entity_name = entity.name.clone();
 
     // Handler for the update endpoint
     let handler = Arc::new(move |request: ApiRequest| -> Result<ApiResponse<T>> {
@@ -36,10 +37,10 @@ where
         })?;
 
         // First check if the item exists
-        match datasource.get_by_id(id) {
+        match datasource.get_by_id(id, Some(&entity_name)) {
             Ok(Some(_)) => {
                 // Item exists, proceed with update
-                match datasource.update(id, updated_item) {
+                match datasource.update(id, updated_item , Some(&entity_name)) {
                     Ok(item) => {
                         let headers = default_headers();
                         Ok(ApiResponse {

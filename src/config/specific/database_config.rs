@@ -93,17 +93,17 @@ impl DatabaseConfig {
     pub fn make_url(&self) -> String {
         match self.db_type {
             DatabaseType::PostgreSQL => format!(
-                "postgresql://{}:{}@{}/{}",
-                self.username, self.password, self.host, self.database_name
+                "postgresql://{}:{}@{}:{}/{}",
+                self.username, self.password, self.host, self.port.unwrap_or(5432), self.database_name
             ),
             DatabaseType::MySQL => format!(
-                "mysql://{}:{}@{}/{}",
-                self.username, self.password, self.host, self.database_name
+                "mysql://{}:{}@{}:{}/{}",
+                self.username, self.password, self.host, self.port.unwrap_or(3306), self.database_name
             ),
             DatabaseType::SQLite => format!("sqlite://{}", self.connection_string),
             DatabaseType::MongoDB => format!(
-                "mongodb://{}:{}@{}/{}",
-                self.username, self.password, self.host, self.database_name
+                "mongodb://{}:{}@{}:{}/{}",
+                self.username, self.password, self.host, self.port.unwrap_or(27017), self.database_name
             ),
         }
     }
@@ -117,6 +117,7 @@ where
     match s.as_str() {
         "PostgreSQL" => Ok(DatabaseType::PostgreSQL),
         "MySQL" => Ok(DatabaseType::MySQL),
+        "MariaDB" => Ok(DatabaseType::MySQL), 
         "SQLite" => Ok(DatabaseType::SQLite),
         "MongoDB" => Ok(DatabaseType::MongoDB),
         _ => Err(serde::de::Error::custom(format!("Invalid database type: {}", s))),

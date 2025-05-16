@@ -77,72 +77,124 @@ impl<T: ApiEntity> ApiAdapter<T> {
 impl<T: ApiEntity> ApiAdapterTrait<T> for ApiAdapter<T> {
     /// Handles an API request and returns a response
     fn handle_request(&self, request: ApiRequest) -> Result<ApiResponse<T>> {
+
         // Split the path into components
         let path_parts: Vec<&str> = request.path.split('/').filter(|s| !s.is_empty()).collect();
         
-        // Add debug logging
         eprintln!("Debug: Path parts: {:?}", path_parts);
         eprintln!("Debug: API prefix: {:?}", self.config.api_prefix);
         eprintln!("Debug: Available entities: {:?}", self.entities.keys().collect::<Vec<_>>());
         
         // Extract entity name accounting for API prefix
-        let entity_name = if let Some(api_prefix) = &self.config.api_prefix {
+        let entity_name;
+
+        // Check if the API prefix is set and adjust the entity name accordingly
+        if let Some(api_prefix) = &self.config.api_prefix {
             let prefix = api_prefix.trim_start_matches('/').trim_end_matches('/');
             
-            // If the path starts with the API prefix, the entity name is the next part
             if !path_parts.is_empty() && path_parts[0] == prefix {
                 if path_parts.len() < 2 {
                     return Err(RusterApiError::ValidationError("Invalid path: missing entity name".to_string()));
                 }
-                path_parts[1]
+                // Normilize the entity name to lowercase
+                entity_name = path_parts[1].to_lowercase();
             } else if !path_parts.is_empty() {
-                // If no prefix, the first part is the entity name
-                path_parts[0]
+                // If the prefix is not present, use the first part of the path
+                entity_name = path_parts[0].to_lowercase();
             } else {
                 return Err(RusterApiError::ValidationError("Invalid path: empty path".to_string()));
             }
         } else if !path_parts.is_empty() {
-            // No API prefix configured, first part is the entity name
-            path_parts[0]
+            // If no prefix is set, use the first part of the path
+            entity_name = path_parts[0].to_lowercase();
         } else {
             return Err(RusterApiError::ValidationError("Invalid path: empty path".to_string()));
         };
         
         // Add more debug logging
         eprintln!("Debug: Extracted entity name: {}", entity_name);
-        eprintln!("Debug: Endpoint key: {:?}:{}", request.method, request.path);
-
-        // Find the entity's API configuration
-        if let Some(entity_api) = self.entities.get(entity_name) {
-            let endpoint_key = format!("{:?}:{}", request.method, request.path);
+        
+        // Entity name search is case insensitive
+        let entity_api = self.entities.iter()
+            .find_map(|(key, value)| {
+                if key.to_lowercase() == entity_name {
+                    Some(value)
+                } else {
+                    None
+                }
+            });
+        
+        if let Some(entity_api) = entity_api {
+            // Generate possible keys based on the request method and entity name
+            let possible_keys = vec![
+                // Without prefix
+                format!("{:?}:{}", request.method, entity_name),
+                // Key with ID without prefix
+                format!("{:?}:{}/:id", request.method, entity_name),
+                // Key with API prefix
+                format!("{:?}:api/{}", request.method, entity_name),
+                // Key with API prefix and ID
+                format!("{:?}:api/{}/:id", request.method, entity_name),
+            ];
             
-            // Add debug logging for endpoints
-            eprintln!("Debug: Available endpoints for entity {}: {:?}", 
-                     entity_name, 
-                     entity_api.endpoints.keys().collect::<Vec<_>>());
+            eprintln!("Debug: Trying keys: {:?}", possible_keys);
+            eprintln!("Debug: Available endpoints: {:?}", entity_api.endpoints.keys().collect::<Vec<_>>());
 
-            // Find the handler for the specific endpoint
-            if let Some(handler) = entity_api.endpoints.get(&endpoint_key) {
+            // Try all possible keys
+            for key in &possible_keys {
+                if let Some(handler) = entity_api.endpoints.get(key) {
+                    eprintln!("Debug: Found handler with key: {}", key);
+                    return match handler(request) {
+                        Ok(response) => Ok(response),
+                        Err(RusterApiError::EndpointGenerationError(msg)) => {
+                            eprintln!("Debug: Entity mapping error: {}", msg);
+                            Ok(ApiResponse {
+                                status: 500,
+                                headers: HashMap::new(),
+                                body: None,
+                            })
+                        }
+                        Err(e) => Err(e)
+                    };
+                }
+            }
+
+            // If no exact key is found, look for a partial match
+            let mut found_handler = None;
+            for (key, handler) in &entity_api.endpoints {
+                if key.contains(&entity_name) && key.starts_with(&format!("{:?}", request.method)) {
+                    found_handler = Some(handler);
+                    eprintln!("Debug: Found handler with partial match: {}", key);
+                    break;
+                }
+            }
+            
+            if let Some(handler) = found_handler {
                 handler(request)
             } else {
                 Err(RusterApiError::EntityNotFound(format!(
-                    "Endpoint not found: {}",
-                    endpoint_key
+                    "Endpoint not found for {:?} {}. Available endpoints: {:?}",
+                    request.method, 
+                    request.path, 
+                    entity_api.endpoints.keys().collect::<Vec<_>>()
                 )))
             }
         } else {
+            // If the entity is not found, return an error
             Err(RusterApiError::EntityNotFound(format!(
-                "Entity not found: {}",
-                entity_name
+                "Entity not found: {}. Available entities: {:?}",
+                entity_name,
+                self.entities.keys().collect::<Vec<_>>()
             )))
         }
     }
 }
 
-// Implementar Clone para ApiAdapter para poder usarlo con el adaptador de Rocket
+// Implement the Clone trait for ApiAdapter
+// This allows the ApiAdapter to be cloned, which is useful for passing it around
 impl<T: ApiEntity> Clone for ApiAdapter<T> {
     fn clone(&self) -> Self {
-        // Crear un nuevo ApiAdapter con las mismas configuraciones pero con referencias compartidas a los datos
+        // Create a new ApiAdapter with the same configuration but with shared references to the data
         Self {
             config: self.config.clone(),
             entities: self.entities.clone(),
@@ -160,6 +212,11 @@ fn entity_mapper<T: ApiEntity>(
     println!("Available datasources: {:?}", datasources.keys().collect::<Vec<_>>());
     println!("Advanced entities count: {}", config.entities_advanced.len());
     println!("Basic entities count: {}", config.entities_basic.len());
+    
+    // Normalize all datasource keys for better matching
+    let normalized_datasources: HashMap<String, &Box<dyn DataSource<T>>> = datasources.iter()
+        .map(|(k, v)| (k.to_lowercase(), v))
+        .collect();
 
     // Process all entities (both advanced and basic)
     let mut processed_entities = std::collections::HashSet::new();
@@ -167,10 +224,16 @@ fn entity_mapper<T: ApiEntity>(
     // First process advanced entities
     for entity in &config.entities_advanced {
         println!("Processing advanced entity: {}", entity.name);
-        if !processed_entities.contains(&entity.name) {
-            if let Some(datasource) = datasources.get(&entity.name) {
+        let normalized_name = entity.name.to_lowercase();
+        if !processed_entities.contains(&normalized_name) {
+            // Search for the datasource by both normalized and exact name
+            let datasource = normalized_datasources.get(&normalized_name)
+                .copied()
+                .or_else(|| datasources.get(&entity.name));
+            
+            if let Some(datasource) = datasource {
                 // Initialize the handler manager for the entity
-                let handler_manager = ApiHandlerManager::new(config.clone(), datasource.clone());
+                let handler_manager = ApiHandlerManager::new(config.clone(), (*datasource).clone());
 
                 // Get the initialized endpoints for the entity
                 let endpoints = handler_manager.initialize_endpoints(entity);
@@ -179,7 +242,7 @@ fn entity_mapper<T: ApiEntity>(
                 entities.insert(
                     entity.name.clone(),
                     EntityApi {
-                        datasource: datasource.clone(),
+                        datasource: (*datasource).clone(),
                         endpoints,
                     },
                 );
@@ -194,13 +257,27 @@ fn entity_mapper<T: ApiEntity>(
     // Then process basic entities
     for entity_basic in &config.entities_basic {
         println!("Processing basic entity: {}", entity_basic.name);
-        if !processed_entities.contains(&entity_basic.name) {
-            if let Some(datasource) = datasources.get(&entity_basic.name) {
+
+        // Normalize the entity name to lowercase for case-insensitive matching
+        let normalized_name = entity_basic.name.to_lowercase();
+        
+        if !processed_entities.contains(&normalized_name) {
+            // Search for the datasource by both normalized and exact name
+            let datasource = normalized_datasources.get(&normalized_name)
+                .or_else(|| normalized_datasources.get(&entity_basic.name.to_lowercase()))
+                .map(|ds| *ds)
+                .or_else(|| {
+                    datasources.get(&entity_basic.name)
+                });
+           
+            if let Some(datasource) = datasource {
                 println!("Found datasource for basic entity: {}", entity_basic.name);
                 
-                // Convert EntityBasic to Entity
+                // Prepare the entity configuration
+                // Use the entity_basic fields to create the Entity struct
                 let entity = Entity {
                     name: entity_basic.name.clone(),
+
                     table_name: entity_basic.table_name.clone(),
                     fields: entity_basic.fields.iter().map(|f| {
                         crate::config::specific::entity_config::Field {
@@ -234,23 +311,31 @@ fn entity_mapper<T: ApiEntity>(
                 };
 
                 // Initialize the handler manager for the entity
-                let handler_manager = ApiHandlerManager::new(config.clone(), datasource.clone());
+                let handler_manager = ApiHandlerManager::new(config.clone(), (*datasource).clone());
 
                 // Get the initialized endpoints for the entity
                 let endpoints = handler_manager.initialize_endpoints(&entity);
 
+                // Register the available endpoints
+                println!("Registered endpoints for {}: {:?}", 
+                         entity_basic.name, 
+                         endpoints.keys().collect::<Vec<_>>());
+
                 // Add the entity's API configuration to the HashMap
+                // Use the normalized name as the key
                 entities.insert(
-                    entity_basic.name.clone(),
+                    normalized_name.clone(),
                     EntityApi {
-                        datasource: datasource.clone(),
+                        datasource: (*datasource).clone(),
                         endpoints,
                     },
                 );
-                processed_entities.insert(entity_basic.name.clone());
+                processed_entities.insert(normalized_name);
                 println!("Successfully mapped basic entity: {}", entity_basic.name);
             } else {
-                println!("No datasource found for basic entity: {}", entity_basic.name);
+                println!("No datasource found for basic entity: {}. Available datasources: {:?}", 
+                         entity_basic.name, 
+                         datasources.keys().collect::<Vec<_>>());
             }
         }
     }

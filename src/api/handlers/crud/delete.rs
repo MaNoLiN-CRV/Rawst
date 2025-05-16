@@ -18,6 +18,8 @@ pub fn register_delete_endpoint<T>(
     let base_path = format!("{}/:id", entity.name);
     let endpoint_key = format!("DELETE:{}", base_path);
 
+    let entity_name = entity.name.clone();
+
     // Handler for the delete endpoint
     let handler = Arc::new(move |request: ApiRequest| -> Result<ApiResponse<T>> {
         let id = request
@@ -25,7 +27,7 @@ pub fn register_delete_endpoint<T>(
             .get("id")
             .ok_or_else(|| RusterApiError::ValidationError("ID parameter missing".to_string()))?;
 
-        match datasource.delete(id) {
+        match datasource.delete(id, Some(&entity_name)) {
             Ok(true) => {
                 let headers = default_headers();
                 Ok(ApiResponse {
