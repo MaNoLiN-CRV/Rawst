@@ -117,30 +117,68 @@ async fn body_to_string(body: rocket::Data<'_>)
 /// Common request processing logic
 pub async fn process_request(api_request: ApiRequest, state: &State<RocketApiState<serde_json::Value>>) 
 -> ApiResponse<serde_json::Value> {
-    // Process the request using our API adapter
-    let result = state.api_adapter.handle_request(api_request);
+    // Clone adapter for use in spawn_blocking
+    let api_adapter_clone = state.api_adapter.clone();
     
-    match result {
-        Ok(api_response) => api_response, 
-        Err(err) => {
-            // Convert error to ApiResponse
-            let status = match err {
-                RusterApiError::EntityNotFound(_) => Status::NotFound,
-                RusterApiError::ValidationError(_) => Status::BadRequest,
-                RusterApiError::BadRequest(_) => Status::BadRequest,
-                RusterApiError::DatabaseError(_) => Status::InternalServerError,
-                _ => Status::InternalServerError,
-            };
-            
-            // Log the error for debugging
-            eprintln!("API Error: {:?}", err);
-            
-            // Create API error response
-            ApiResponse {
-                status: status.code,
-                body: Some(ApiResponseBody::Json(serde_json::json!({ "error": err.to_string() }))),
-                headers: default_headers(),
+    // Create a timeout future (30 seconds)
+    let timeout_duration = std::time::Duration::from_secs(30);
+    
+    // Use tokio::time::timeout to prevent hanging requests
+    match tokio::time::timeout(
+        timeout_duration,
+        tokio::task::spawn_blocking(move || {
+            // Log that we're starting the request processing
+            eprintln!("Processing request: {:?} {}", api_request.method, api_request.path);
+            let result = api_adapter_clone.handle_request(api_request);
+            eprintln!("Request processing completed with result: {:?}", result.is_ok());
+            result
+        })
+    ).await {
+        Ok(join_result) => match join_result {
+            Ok(result) => match result {
+                Ok(api_response) => api_response, 
+                Err(err) => {
+                    // Convert error to ApiResponse
+                    let status = match err {
+                        RusterApiError::EntityNotFound(_) => Status::NotFound,
+                        RusterApiError::ValidationError(_) => Status::BadRequest,
+                        RusterApiError::BadRequest(_) => Status::BadRequest,
+                        RusterApiError::DatabaseError(_) => Status::InternalServerError,
+                        _ => Status::InternalServerError,
+                    };
+                    
+                    // Log the error for debugging
+                    eprintln!("API Error: {:?}", err);
+                    
+                    // Create API error response
+                    ApiResponse {
+                        status: status.code,
+                        body: Some(ApiResponseBody::Json(serde_json::json!({ "error": err.to_string() }))),
+                        headers: default_headers(),
+                    }
+                }
+            },
+            Err(join_err) => {
+                eprintln!("Task join error: {:?}", join_err);
+                ApiResponse {
+                    status: Status::InternalServerError.code,
+                    body: Some(ApiResponseBody::Json(serde_json::json!({ 
+                        "error": "Internal server error: Request processing failed" 
+                    }))),
+                    headers: default_headers(),
+                }
             }
         },
+        Err(_) => {
+            // Timeout occurred
+            eprintln!("Request processing timed out after {} seconds", timeout_duration.as_secs());
+            ApiResponse {
+                status: Status::GatewayTimeout.code,
+                body: Some(ApiResponseBody::Json(serde_json::json!({ 
+                    "error": "Request timed out - database operation may be taking too long" 
+                }))),
+                headers: default_headers(),
+            }
+        }
     }
 }

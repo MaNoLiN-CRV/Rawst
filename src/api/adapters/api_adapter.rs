@@ -67,9 +67,9 @@ impl<T: ApiEntity> ApiAdapter<T> {
     }
 
     /// Starts the API server based on the configuration
-    pub fn start_server(&self) -> Result<()> {
+    pub async fn start_server(&self) -> Result<()> {
         // Use the Rocket adapter for server implementation
-        rocket_adapter::start_server(self.clone())
+        rocket_adapter::start_server(self.clone()).await
     }
 }
 

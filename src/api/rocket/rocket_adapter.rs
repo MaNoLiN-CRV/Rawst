@@ -66,7 +66,7 @@ impl<'r, T: Serialize> Responder<'r, 'static> for ApiResponseWrapper<T> {
 }
 
 // Main function to start the Rocket server
-pub fn start_server<T: ApiEntity>(api_adapter: ApiAdapter<T>) -> Result<()> {
+pub async fn start_server<T: ApiEntity>(api_adapter: ApiAdapter<T>) -> Result<()> {
 
     let rocket_api_state = RocketApiState {
         api_adapter: Arc::new(api_adapter),
@@ -83,16 +83,8 @@ pub fn start_server<T: ApiEntity>(api_adapter: ApiAdapter<T>) -> Result<()> {
             catch_all::patch_handler
         ]);
 
-    // TODO : Set the rocket launch async , because it is blocking and can cause issues
-    let runtime = tokio::runtime::Runtime::new().map_err(|e| 
-        RusterApiError::ServerError(format!("Failed to create runtime: {}", e))
-    )?;
-
     // Launch Rocket and handle any errors
-    runtime.block_on(async {
-        match rocket_instance.launch().await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(RusterApiError::ServerError(format!("Failed to launch Rocket server: {:?}", e))),
-        }
+    rocket_instance.launch().await.map(|_| ()).map_err(|e| {
+        RusterApiError::ServerError(format!("Failed to launch Rocket server: {:?}", e))
     })
 }

@@ -415,8 +415,8 @@ async fn start_api_server() -> Result<String, String> {
             }
         };
         
-        // Run the server in the runtime - remove block_on since start_server is not async
-        match adapter.start_server() {
+        // Use the runtime to block on the async function
+        match rt.block_on(adapter.start_server()) {
             Ok(_) => {
                 println!("API server started successfully");
             }
