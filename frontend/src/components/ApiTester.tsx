@@ -177,7 +177,10 @@ const ApiTester: React.FC = () => {
         setResponse(result);
       }
       setTabValue(1); 
-      fetchServerMetrics();
+      // Only fetch server metrics if the monitoring metrics tab is currently active
+      if (monitoringTabValue === 0) {
+        fetchServerMetrics();
+      }
     } catch (err: unknown) {
       console.error('Error making API request:', err);
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -187,7 +190,7 @@ const ApiTester: React.FC = () => {
     } finally {
       setIsSendingRequest(false);
     }
-  }, [selectedEndpoint, apiUrl, requestBody, fetchServerMetrics, setApiConfigError]);
+  }, [selectedEndpoint, apiUrl, requestBody, fetchServerMetrics, setApiConfigError, monitoringTabValue]);
 
   const currentFullUrl = useMemo(() => {
     if (!selectedEndpoint) return apiUrl;
