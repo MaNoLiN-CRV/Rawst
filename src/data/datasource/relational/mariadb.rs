@@ -470,12 +470,17 @@ where
         
         // Execute the query and map the results
         let results = self.runtime.block_on(async {
-            // Añadir un timeout explícito para la consulta
             let query_future = sqlx::query(&query).fetch_all(pool);
             let timeout_duration = std::time::Duration::from_secs(10); 
             
             match tokio::time::timeout(timeout_duration, query_future).await {
                 Ok(result) => {
+
+                    if let Ok(rows) = &result {
+                        if rows.is_empty() {
+                            return Ok::<Vec<T>, Box<dyn Error>>(Vec::new());
+                        }
+                    }
                     match result {
                         Ok(rows) => {
                             let mut entities = Vec::with_capacity(rows.len());
@@ -494,7 +499,7 @@ where
                     }
                 },
                 Err(_) => {
-                    // La consulta excedió el timeout
+                
                     Err(Box::new(DataSourceError::QueryError(
                         format!("Query timed out after {} seconds", timeout_duration.as_secs())
                     )) as Box<dyn Error>)

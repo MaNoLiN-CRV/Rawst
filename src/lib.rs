@@ -79,8 +79,7 @@ pub mod connection {
 }
 
 pub mod error;
-pub mod filemanager;
-pub mod request_manager;
+
 
 // Re-export commonly used items
 pub use error::RusterApiError;
