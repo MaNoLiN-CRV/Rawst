@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  TextField, 
-  Button, 
-  Select, 
-  MenuItem, 
-  FormControl, 
-  InputLabel, 
+import React, { useState, useEffect, useCallback, useMemo } from 'react'; // Added React
+import {
+  Box,
+  Typography,
+  Paper,
+  TextField,
+  Button,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
   SelectChangeEvent,
   Tabs,
   Tab,
@@ -18,562 +18,506 @@ import {
   CardContent,
   Chip,
   Stack,
-  CircularProgress} from '@mui/material';
+  CircularProgress,
+  useTheme, // Import useTheme
+} from '@mui/material';
 import { invoke } from '@tauri-apps/api/core';
 
+// --- START TYPE DEFINITIONS ---
+
+/**
+ * Properties for the TabPanel component.
+ */
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
   value: number;
 }
 
-function TabPanel(props: TabPanelProps) {
+/**
+ * Represents a field within an API entity.
+ */
+interface EntityField {
+  name: string;
+  data_type: 'String' | 'Integer' | 'Number' | 'Boolean' | 'Date' | string; // Allow other string for extensibility
+  // Add other potential properties like 'required', 'is_primary_key' if needed by the backend config
+}
+
+/**
+ * Represents a custom route configuration for an entity.
+ */
+interface CustomRoute {
+  path: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | string; // Common HTTP methods + string
+  handler?: string; // Description or identifier for the handler
+}
+
+/**
+ * Configuration for the standard CRUD and custom endpoints of an entity.
+ */
+interface EntityEndpointsConfig {
+  generate_list?: boolean;
+  generate_read?: boolean;
+  generate_create?: boolean;
+  generate_update?: boolean;
+  generate_delete?: boolean;
+  custom_routes?: CustomRoute[];
+}
+
+/**
+ * Represents an API entity with its configuration.
+ */
+interface ApiEntity {
+  name: string;
+  fields: EntityField[];
+  endpoints?: EntityEndpointsConfig;
+  // Other potential properties for an entity
+}
+
+/**
+ * Configuration for the API server.
+ */
+interface ServerConfig {
+  host: string;
+  port: number;
+}
+
+/**
+ * Overall API configuration structure fetched from the backend.
+ */
+interface ApiConfiguration {
+  entities_basic?: ApiEntity[];
+  entities_advanced?: ApiEntity[]; // Assuming similar structure for advanced entities
+  server?: ServerConfig;
+  api_prefix?: string;
+  // Other top-level configuration properties
+}
+
+/**
+ * Configuration for a specific API endpoint to be tested.
+ */
+interface EndpointConfig {
+  path: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | string; // Common HTTP methods
+  description: string;
+}
+
+type ServerStatus = 'stopped' | 'starting' | 'running' | 'error';
+
+// --- END TYPE DEFINITIONS ---
+
+/**
+ * A simple panel component to display content for a selected tab.
+ * @param props - The props for the TabPanel.
+ * @returns A React element representing the tab panel.
+ */
+function TabPanel(props: TabPanelProps): React.ReactElement | null { // Changed to React.ReactElement | null
   const { children, value, index, ...other } = props;
+
+  if (value !== index) {
+    return null;
+  }
 
   return (
     <div
       role="tabpanel"
-      hidden={value !== index}
+      hidden={value !== index} // Still useful for semantics even if returning null above for React tree
       id={`api-tabpanel-${index}`}
       aria-labelledby={`api-tab-${index}`}
       {...other}
     >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
+        {children}
+      </Box>
     </div>
   );
 }
 
-interface EndpointConfig {
-  path: string;
-  method: string;
-  description: string;
-}
-
 /**
- * API Tester component for testing the generated API endpoints
+ * `ApiTester` component allows users to interact with and test API endpoints
+ * that are configured in the backend. It fetches the API configuration,
+ * allows selection of entities and endpoints, and sending requests to a
+ * locally running API server.
  */
-const ApiTester = () => {
-  const [entities, setEntities] = useState<any[]>([]);
-  const [selectedEntity, setSelectedEntity] = useState<string>('');
+const ApiTester: React.FC = () => {
+  const theme = useTheme(); // For accessing theme properties
+
+  const [entities, setEntities] = useState<ApiEntity[]>([]);
+  const [selectedEntityName, setSelectedEntityName] = useState<string>('');
   const [selectedEndpoint, setSelectedEndpoint] = useState<EndpointConfig | null>(null);
   const [endpoints, setEndpoints] = useState<EndpointConfig[]>([]);
   const [requestBody, setRequestBody] = useState<string>('');
   const [response, setResponse] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
-  const [tabValue, setTabValue] = useState(0);
-  const [apiUrl, setApiUrl] = useState<string>('http://localhost:8000/api');
+  const [isLoadingConfig, setIsLoadingConfig] = useState<boolean>(true); // For initial config load
+  const [isSendingRequest, setIsSendingRequest] = useState<boolean>(false); // For API request in progress
+  const [tabValue, setTabValue] = useState<number>(0);
+  const [apiUrl, setApiUrl] = useState<string>('http://localhost:8000/api'); // Default, will be updated from config
   const [error, setError] = useState<string | null>(null);
-  const [serverStatus, setServerStatus] = useState<'stopped' | 'starting' | 'running' | 'error'>('stopped');
+  const [serverStatus, setServerStatus] = useState<ServerStatus>('stopped');
   const [serverMessage, setServerMessage] = useState<string>('');
 
-  useEffect(() => {
-    // Load API configuration when component mounts
-    fetchApiConfiguration();
-    // Start polling server status
-    const statusInterval = setInterval(checkServerStatus, 2000);
-    return () => clearInterval(statusInterval);
+
+  const getMethodColor = useCallback((method: string): string => {
+    switch (method.toUpperCase()) {
+      case 'GET': return theme.palette.info.main; // Blue
+      case 'POST': return theme.palette.success.main; // Green
+      case 'PUT': return theme.palette.warning.main; // Orange
+      case 'DELETE': return theme.palette.error.main; // Red
+      case 'PATCH': return theme.palette.secondary.main; // Purple/Secondary
+      default: return theme.palette.grey[700];
+    }
+  }, [theme]);
+
+  const generateSampleBody = useCallback((entity: ApiEntity | undefined): string => {
+    if (!entity || !entity.fields || entity.fields.length === 0) {
+      // Default if no fields or entity
+      return JSON.stringify({ id: 0, sample_field: "sample_value" }, null, 2);
+    }
+    const sampleBody: { [key: string]: any } = {};
+    entity.fields.forEach((field) => {
+      if (!field || !field.name) return;
+      let defaultValue: any;
+      switch (field.data_type) {
+        case 'String': defaultValue = `Sample ${field.name}`; break;
+        case 'Integer': case 'Number': defaultValue = 0; break;
+        case 'Boolean': defaultValue = false; break;
+        case 'Date': defaultValue = new Date().toISOString().split('T')[0]; break; // Just date part
+        default: defaultValue = null;
+      }
+      sampleBody[field.name] = defaultValue;
+    });
+    return JSON.stringify(sampleBody, null, 2);
+  }, []);
+  
+  const createEndpointsForEntity = useCallback((entity: ApiEntity): EndpointConfig[] => {
+    const entityName = entity.name;
+    let newEndpoints: EndpointConfig[] = [];
+
+    if (!entity.endpoints || Object.keys(entity.endpoints).length === 0) {
+      console.log(`Entity ${entityName} has no specific endpoints configuration, using defaults.`);
+      newEndpoints = [
+        { path: `/${entityName}`, method: 'GET', description: `Get all ${entityName}` },
+        { path: `/${entityName}/{id}`, method: 'GET', description: `Get ${entityName} by ID` },
+        { path: `/${entityName}`, method: 'POST', description: `Create new ${entityName}` },
+        { path: `/${entityName}/{id}`, method: 'PUT', description: `Update ${entityName}` },
+        { path: `/${entityName}/{id}`, method: 'DELETE', description: `Delete ${entityName}` },
+      ];
+    } else {
+      const { generate_list, generate_read, generate_create, generate_update, generate_delete, custom_routes } = entity.endpoints;
+      if (generate_list) newEndpoints.push({ path: `/${entityName}`, method: 'GET', description: `Get all ${entityName}` });
+      if (generate_read) newEndpoints.push({ path: `/${entityName}/{id}`, method: 'GET', description: `Get ${entityName} by ID` });
+      if (generate_create) newEndpoints.push({ path: `/${entityName}`, method: 'POST', description: `Create new ${entityName}` });
+      if (generate_update) newEndpoints.push({ path: `/${entityName}/{id}`, method: 'PUT', description: `Update ${entityName}` });
+      if (generate_delete) newEndpoints.push({ path: `/${entityName}/{id}`, method: 'DELETE', description: `Delete ${entityName}` });
+
+      if (custom_routes && custom_routes.length > 0) {
+        custom_routes.forEach((route: CustomRoute) => {
+          newEndpoints.push({
+            path: route.path,
+            method: route.method,
+            description: route.handler || `Custom endpoint for ${entityName}`,
+          });
+        });
+      }
+    }
+    return newEndpoints;
   }, []);
 
-  const fetchApiConfiguration = async () => {
+
+  const fetchApiConfiguration = useCallback(async (): Promise<void> => {
     try {
-      setLoading(true);
+      setIsLoadingConfig(true);
       setError(null);
-      // Get the configuration from the backend
       console.log("Fetching API configuration...");
-      const config = await invoke<any>('get_current_configuration');
+      const config = await invoke<ApiConfiguration | null>('get_current_configuration');
       
       console.log("API configuration received:", config ? "YES" : "NO", 
-                  config && config.entities_basic ? `(${config.entities_basic.length} entities)` : "(no entities)");
+                  config?.entities_basic ? `(${config.entities_basic.length} basic entities)` : "(no basic entities)");
       
       if (config && config.entities_basic && config.entities_basic.length > 0) {
-        console.log("Setting entities:", config.entities_basic.length);
         setEntities(config.entities_basic);
         
-        // Automatically select the first entity to make testing easier
-        if (config.entities_basic.length > 0 && config.entities_basic[0].name) {
-          const firstEntity = config.entities_basic[0].name;
-          console.log("Auto-selecting first entity:", firstEntity);
-          setSelectedEntity(firstEntity);
+        const firstEntity = config.entities_basic[0];
+        if (firstEntity?.name) {
+          console.log("Auto-selecting first entity:", firstEntity.name);
+          setSelectedEntityName(firstEntity.name);
           
-          // Generate endpoints for the first entity
-          const entity = config.entities_basic[0];
-          let newEndpoints: EndpointConfig[] = [];
-          
-          // Check if the entity has endpoints configuration
-          if (!entity.endpoints) {
-            console.log(`Entity ${firstEntity} has no endpoints configuration, using defaults`);
-            newEndpoints = createDefaultEndpoints(firstEntity);
-          } else {
-            // Use existing endpoint configuration
-            if (entity.endpoints?.generate_list) {
-              newEndpoints.push({
-                path: `/${firstEntity}`,
-                method: 'GET',
-                description: `Get all ${firstEntity}`
-              });
-            }
-            
-            if (entity.endpoints?.generate_read) {
-              newEndpoints.push({
-                path: `/${firstEntity}/{id}`,
-                method: 'GET',
-                description: `Get ${firstEntity} by ID`
-              });
-            }
-            
-            if (entity.endpoints?.generate_create) {
-              newEndpoints.push({
-                path: `/${firstEntity}`,
-                method: 'POST',
-                description: `Create new ${firstEntity}`
-              });
-            }
-            
-            if (entity.endpoints?.generate_update) {
-              newEndpoints.push({
-                path: `/${firstEntity}/{id}`,
-                method: 'PUT',
-                description: `Update ${firstEntity}`
-              });
-            }
-            
-            if (entity.endpoints?.generate_delete) {
-              newEndpoints.push({
-                path: `/${firstEntity}/{id}`,
-                method: 'DELETE',
-                description: `Delete ${firstEntity}`
-              });
-            }
-            
-            // Add custom routes if any
-            if (entity.endpoints?.custom_routes && entity.endpoints.custom_routes.length > 0) {
-              entity.endpoints.custom_routes.forEach((route: any) => {
-                newEndpoints.push({
-                  path: route.path,
-                  method: route.method,
-                  description: route.handler || 'Custom endpoint'
-                });
-              });
-            }
-          }
-          
-          console.log("Setting initial endpoints:", newEndpoints.length);
+          const newEndpoints = createEndpointsForEntity(firstEntity);
           setEndpoints(newEndpoints);
+
           if (newEndpoints.length > 0) {
             setSelectedEndpoint(newEndpoints[0]);
-          }
-          
-          // Generate sample request body for POST/PUT
-          if (newEndpoints.find(e => e.method === 'POST' || e.method === 'PUT')) {
-            const sampleBody: any = {};
-            
-            // Check if entity has fields
-            if (entity.fields && Array.isArray(entity.fields) && entity.fields.length > 0) {
-              entity.fields.forEach((field: any) => {
-                if (!field || !field.name) return;
-                
-                let defaultValue: any = null;
-                
-                switch (field.data_type) {
-                  case 'String':
-                    defaultValue = `"Sample ${field.name}"`;
-                    break;
-                  case 'Integer':
-                  case 'Number':
-                    defaultValue = 0;
-                    break;
-                  case 'Boolean':
-                    defaultValue = false;
-                    break;
-                  case 'Date':
-                    defaultValue = new Date().toISOString();
-                    break;
-                  default:
-                    defaultValue = null;
-                }
-                
-                sampleBody[field.name] = defaultValue;
-              });
+            if (newEndpoints[0].method === 'POST' || newEndpoints[0].method === 'PUT') {
+              setRequestBody(generateSampleBody(firstEntity));
             } else {
-              // Add default field if none exists
-              console.log("No fields found for entity, adding default sample field");
-              sampleBody["sample_field"] = "sample value";
-              sampleBody["id"] = 0;
+              setRequestBody('');
             }
-            
-            setRequestBody(JSON.stringify(sampleBody, null, 2));
-          }
-          
-          if (config.server) {
-            setApiUrl(`http://${config.server.host}:${config.server.port}${config.api_prefix || '/api'}`);
+          } else {
+            setSelectedEndpoint(null);
+            setRequestBody('');
           }
         }
+        if (config.server && config.server.host && config.server.port) {
+          setApiUrl(`http://${config.server.host}:${config.server.port}${config.api_prefix || '/api'}`);
+        }
       } else {
-        console.error("No entities found in configuration");
-        setError("No API entities found in configuration. Please generate your API configuration first.");
+        setEntities([]); // Clear entities if none found
+        setSelectedEntityName('');
+        setEndpoints([]);
+        setSelectedEndpoint(null);
+        console.error("No entities found in configuration or configuration is null.");
+        setError("No API entities found in configuration. Please ensure your API is configured and the server has access to it.");
       }
-    } catch (error: any) {
-      console.error('Error fetching API configuration:', error);
-      setError(error?.toString() || 'Error loading API configuration');
-      setResponse(JSON.stringify({ error: 'Error loading API configuration' }, null, 2));
+    } catch (err: any) {
+      console.error('Error fetching API configuration:', err);
+      setError(err?.message || err?.toString() || 'Unknown error loading API configuration');
+      setResponse(JSON.stringify({ error: 'Error loading API configuration', details: err?.message || err }, null, 2));
     } finally {
-      setLoading(false);
+      setIsLoadingConfig(false);
     }
-  };
+  }, [createEndpointsForEntity, generateSampleBody]); // Added dependencies
 
-  const checkServerStatus = async () => {
+  const checkServerStatus = useCallback(async (): Promise<void> => {
     try {
-      const status = await invoke<string>('get_server_status');
-      if (status.startsWith('error:')) {
+      const statusResult = await invoke<string>('get_server_status');
+      if (statusResult.startsWith('error:')) {
         setServerStatus('error');
-        setServerMessage(status.substring(6));
+        setServerMessage(statusResult.substring(6));
+      } else if (statusResult === 'running' || statusResult === 'stopped' || statusResult === 'starting') {
+        setServerStatus(statusResult as ServerStatus);
+        setServerMessage(statusResult === 'running' ? 'Server is running' : (statusResult === 'starting' ? 'Server is starting...' : 'Server is stopped.'));
       } else {
-        setServerStatus(status as 'stopped' | 'running');
-        if (status === 'running') {
-          setServerMessage('Server is running');
-        } else {
-          setServerMessage('');
-        }
+        // Fallback for unexpected status strings
+        setServerStatus('error');
+        setServerMessage(`Unknown server status: ${statusResult}`);
       }
-    } catch (error: any) {
-      console.error('Error checking server status:', error);
+    } catch (err: any) {
+      console.error('Error checking server status:', err);
       setServerStatus('error');
-      setServerMessage(error?.toString() || 'Error checking server status');
+      setServerMessage(err?.message || err?.toString() || 'Error checking server status');
     }
-  };
+  }, []);
 
-  const createDefaultEndpoints = (entityName: string): EndpointConfig[] => {
-    console.log(`Creating default endpoints for entity: ${entityName}`);
-    return [
-      {
-        path: `/${entityName}`,
-        method: 'GET',
-        description: `Get all ${entityName}`
-      },
-      {
-        path: `/${entityName}/{id}`,
-        method: 'GET',
-        description: `Get ${entityName} by ID`
-      },
-      {
-        path: `/${entityName}`,
-        method: 'POST',
-        description: `Create new ${entityName}`
-      },
-      {
-        path: `/${entityName}/{id}`,
-        method: 'PUT',
-        description: `Update ${entityName}`
-      },
-      {
-        path: `/${entityName}/{id}`,
-        method: 'DELETE',
-        description: `Delete ${entityName}`
-      }
-    ];
-  };
 
-  const handleEntityChange = (event: SelectChangeEvent) => {
+  useEffect(() => {
+    fetchApiConfiguration();
+    checkServerStatus(); // Initial check
+    const statusInterval = setInterval(checkServerStatus, 5000); // Poll every 5 seconds
+    return () => clearInterval(statusInterval);
+  }, [fetchApiConfiguration, checkServerStatus]);
+
+
+  const handleEntityChange = useCallback((event: SelectChangeEvent<string>): void => {
     const entityName = event.target.value;
-    setSelectedEntity(entityName);
-    setSelectedEndpoint(null);
-    
-    // Find the selected entity
-    const entity = entities.find(e => e.name === entityName);
-    
-    if (entity) {
-      // Generate endpoints based on entity configuration
-      let newEndpoints: EndpointConfig[] = [];
-      
-      // Check if entity has endpoints configuration
-      if (!entity.endpoints) {
-        console.log(`Entity ${entityName} has no endpoints configuration, using defaults`);
-        newEndpoints = createDefaultEndpoints(entityName);
-      } else {
-        // Add null/undefined check for endpoints
-        if (entity.endpoints?.generate_list) {
-          newEndpoints.push({
-            path: `/${entityName}`,
-            method: 'GET',
-            description: `Get all ${entityName}`
-          });
-        }
-        
-        if (entity.endpoints?.generate_read) {
-          newEndpoints.push({
-            path: `/${entityName}/{id}`,
-            method: 'GET',
-            description: `Get ${entityName} by ID`
-          });
-        }
-        
-        if (entity.endpoints?.generate_create) {
-          newEndpoints.push({
-            path: `/${entityName}`,
-            method: 'POST',
-            description: `Create new ${entityName}`
-          });
-        }
-        
-        if (entity.endpoints?.generate_update) {
-          newEndpoints.push({
-            path: `/${entityName}/{id}`,
-            method: 'PUT',
-            description: `Update ${entityName}`
-          });
-        }
-        
-        if (entity.endpoints?.generate_delete) {
-          newEndpoints.push({
-            path: `/${entityName}/{id}`,
-            method: 'DELETE',
-            description: `Delete ${entityName}`
-          });
-        }
-        
-        // Add custom routes if any
-        if (entity.endpoints?.custom_routes && entity.endpoints.custom_routes.length > 0) {
-          entity.endpoints.custom_routes.forEach((route: any) => {
-            newEndpoints.push({
-              path: route.path,
-              method: route.method,
-              description: route.handler || 'Custom endpoint'
-            });
-          });
-        }
-      }
-      
-      setEndpoints(newEndpoints);
-      setSelectedEndpoint(newEndpoints.length > 0 ? newEndpoints[0] : null);
-      
-      // Generate sample request body for POST/PUT
-      if (newEndpoints.find(e => e.method === 'POST' || e.method === 'PUT')) {
-        const sampleBody: any = {};
-        
-        // Check if entity has fields
-        if (entity.fields && Array.isArray(entity.fields) && entity.fields.length > 0) {
-          entity.fields.forEach((field: any) => {
-            if (!field || !field.name) return;
-            
-            let defaultValue: any = null;
-            
-            switch (field.data_type) {
-              case 'String':
-                defaultValue = `"Sample ${field.name}"`;
-                break;
-              case 'Integer':
-              case 'Number':
-                defaultValue = 0;
-                break;
-              case 'Boolean':
-                defaultValue = false;
-                break;
-              case 'Date':
-                defaultValue = new Date().toISOString();
-                break;
-              default:
-                defaultValue = null;
-            }
-            
-            sampleBody[field.name] = defaultValue;
-          });
-        } else {
-          // Add default field if none exists
-          console.log("No fields found for entity, adding default sample field");
-          sampleBody["sample_field"] = "sample value";
-          sampleBody["id"] = 0;
-        }
-        
-        setRequestBody(JSON.stringify(sampleBody, null, 2));
-      } else {
-        setRequestBody('');
-      }
-    }
-  };
+    setSelectedEntityName(entityName);
+    setSelectedEndpoint(null); // Reset endpoint selection
+    setRequestBody(''); // Clear request body
 
-  const handleEndpointChange = (endpoint: EndpointConfig) => {
-    setSelectedEndpoint(endpoint);
-    
-    // Update request body template based on method
-    if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
-      if (!requestBody) {
-        const entity = entities.find(e => e.name === selectedEntity);
-        if (entity) {
-          const sampleBody: any = {};
-          entity.fields.forEach((field: any) => {
-            let defaultValue: any = null;
-            
-            switch (field.data_type) {
-              case 'String':
-                defaultValue = `"Sample ${field.name}"`;
-                break;
-              case 'Integer':
-              case 'Number':
-                defaultValue = 0;
-                break;
-              case 'Boolean':
-                defaultValue = false;
-                break;
-              case 'Date':
-                defaultValue = new Date().toISOString();
-                break;
-              default:
-                defaultValue = null;
-            }
-            
-            sampleBody[field.name] = defaultValue;
-          });
-          
-          setRequestBody(JSON.stringify(sampleBody, null, 2));
+    const entity = entities.find(e => e.name === entityName);
+    if (entity) {
+      const newEndpoints = createEndpointsForEntity(entity);
+      setEndpoints(newEndpoints);
+      if (newEndpoints.length > 0) {
+        setSelectedEndpoint(newEndpoints[0]); // Auto-select first endpoint
+        if (newEndpoints[0].method === 'POST' || newEndpoints[0].method === 'PUT') {
+          setRequestBody(generateSampleBody(entity));
         }
       }
     } else {
-      setRequestBody('');
+      setEndpoints([]); // Clear endpoints if entity not found (should not happen with Select)
     }
-  };
-  
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
+  }, [entities, createEndpointsForEntity, generateSampleBody]);
 
-  const makeApiRequest = async () => {
-    if (!selectedEndpoint) return;
+  const handleEndpointChange = useCallback((endpoint: EndpointConfig): void => {
+    setSelectedEndpoint(endpoint);
+    if (endpoint.method === 'POST' || endpoint.method === 'PUT') {
+      // If body is empty or for a different entity type, regenerate
+      // For simplicity, always regenerate for POST/PUT if not already set for this entity type
+      const currentEntity = entities.find(e => e.name === selectedEntityName);
+      setRequestBody(generateSampleBody(currentEntity));
+    } else {
+      setRequestBody(''); // Clear body for GET/DELETE etc.
+    }
+    setTabValue(0); // Switch to request tab
+    setResponse(''); // Clear previous response
+  }, [entities, selectedEntityName, generateSampleBody]);
+  
+  const handleTabChange = useCallback((event: React.SyntheticEvent, newValue: number): void => {
+    setTabValue(newValue);
+  }, []);
+
+  const makeApiRequest = useCallback(async (): Promise<void> => {
+    if (!selectedEndpoint) {
+      setError("No endpoint selected.");
+      return;
+    }
     
-    setLoading(true);
+    setIsSendingRequest(true);
+    setError(null);
+    setResponse(''); // Clear previous response
+
     try {
-      // Prepare URL - replace placeholders like {id} with a value
-      let url = `${apiUrl}${selectedEndpoint.path}`;
-      if (url.includes('{id}')) {
-        const idValue = prompt('Enter ID value:', '1');
-        if (idValue) {
-          url = url.replace('{id}', idValue);
+      let urlPath = selectedEndpoint.path;
+      // Basic placeholder replacement for {id}
+      // A more robust solution might involve parsing all params from path
+      if (urlPath.includes('{id}')) {
+        // For simplicity, prompt for ID. In a real app, this might come from a form field.
+        const idValue = prompt('Enter ID value for path parameter {id}:', '1');
+        if (idValue !== null && idValue.trim() !== '') {
+          urlPath = urlPath.replace('{id}', encodeURIComponent(idValue));
         } else {
-          throw new Error('ID is required for this endpoint');
+          // If user cancels or enters empty, either throw or use a default/show error
+          setError('ID value is required for this endpoint and was not provided.');
+          setIsSendingRequest(false);
+          return;
         }
       }
+      const fullUrl = `${apiUrl}${urlPath}`;
 
-      // Call the backend to make the API request
+      console.log(`Making API request: ${selectedEndpoint.method} ${fullUrl}`);
+      if (selectedEndpoint.method === 'POST' || selectedEndpoint.method === 'PUT') {
+        console.log('Request body:', requestBody);
+      }
+
       const result = await invoke<string>('test_api_endpoint', { 
-        url,
+        url: fullUrl,
         method: selectedEndpoint.method,
-        body: selectedEndpoint.method === 'POST' || selectedEndpoint.method === 'PUT' ? requestBody : null
+        body: (selectedEndpoint.method === 'POST' || selectedEndpoint.method === 'PUT') ? requestBody : null
       });
       
-      setResponse(result);
+      // Try to parse and re-stringify for pretty printing if it's JSON
+      try {
+        const parsedResult = JSON.parse(result);
+        setResponse(JSON.stringify(parsedResult, null, 2));
+      } catch (parseError) {
+        setResponse(result); // If not JSON, show as is
+      }
       setTabValue(1); // Switch to response tab
-    } catch (error: any) {
-      console.error('Error making API request:', error);
-      setResponse(JSON.stringify({ error: error.toString() }, null, 2));
+    } catch (err: any) {
+      console.error('Error making API request:', err);
+      const errorMessage = err?.message || err?.toString() || 'Unknown error during API request';
+      setResponse(JSON.stringify({ error: 'API Request Failed', details: errorMessage }, null, 2));
+      setError(`API Request Failed: ${errorMessage}`);
       setTabValue(1); // Switch to response tab
     } finally {
-      setLoading(false);
+      setIsSendingRequest(false);
     }
-  };
+  }, [selectedEndpoint, apiUrl, requestBody]); // Added dependencies
 
-  const startApiServer = async () => {
+  const startApiServer = useCallback(async (): Promise<void> => {
     try {
       setServerStatus('starting');
       setError(null);
+      setServerMessage('Attempting to start API server...');
       
-      console.log("Starting API server...");
+      console.log("Invoking start_api_server...");
       const result = await invoke<string>('start_api_server');
       console.log("Server start result:", result);
       
-      setServerStatus('running');
-      setServerMessage(result);
-      
-      // After server starts, refresh the configuration
-      await fetchApiConfiguration();
-      
-      // Wait a bit and check status again
-      setTimeout(checkServerStatus, 1000);
-    } catch (error: any) {
-      console.error('Error starting API server:', error);
-      setServerStatus('error');
-      setError(error?.toString() || 'Error starting API server');
-      setServerMessage('Failed to start API server');
-    }
-  };
+      // The 'start_api_server' might return immediately or after server is up.
+      // We rely on 'checkServerStatus' to confirm.
+      // For immediate feedback:
+      if (result.toLowerCase().includes("error") || result.toLowerCase().includes("fail")) {
+          setServerStatus('error');
+          setServerMessage(result || 'Failed to start API server.');
+          setError(result || 'Failed to start API server.');
+      } else {
+          // Optimistically set to running, checkServerStatus will confirm
+          setServerStatus('running'); 
+          setServerMessage(result || 'Server start initiated. Checking status...');
+          // After server starts (or attempts to), refresh the configuration
+          // and check status more quickly.
+          await fetchApiConfiguration(); 
+      }
+      // Trigger a status check soon after attempting to start
+      setTimeout(checkServerStatus, 1500);
 
-  // Method color mapping
-  const getMethodColor = (method: string) => {
-    switch (method) {
-      case 'GET': return '#2196F3';
-      case 'POST': return '#4CAF50';
-      case 'PUT': return '#FF9800';
-      case 'DELETE': return '#F44336';
-      default: return '#757575';
+    } catch (err: any) {
+      console.error('Error invoking start_api_server:', err);
+      setServerStatus('error');
+      const errorMessage = err?.message || err?.toString() || 'Unknown error starting API server';
+      setError(errorMessage);
+      setServerMessage(`Failed to start API server: ${errorMessage}`);
     }
-  };
+  }, [fetchApiConfiguration, checkServerStatus]); // Added dependencies
+
+  // Memoized values for display
+  const currentFullUrl = useMemo(() => {
+    if (!selectedEndpoint) return apiUrl;
+    // Basic placeholder display, actual replacement happens in makeApiRequest
+    return `${apiUrl}${selectedEndpoint.path}`;
+  }, [apiUrl, selectedEndpoint]);
 
   return (
-    <Box sx={{ py: 4, px: 3 }}>
+    <Box sx={{ py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 3 } }}> {/* Responsive padding */}
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom>API Tester</Typography>
+        <Typography variant="h4" component="h1" gutterBottom>API Tester</Typography>
         <Typography variant="subtitle1" color="text.secondary">
-          Test your generated API endpoints
+          Test your dynamically generated API endpoints. Ensure the backend server is configured and running.
         </Typography>
       </Box>
       
       <Divider sx={{ mb: 4 }} />
       
       {/* Server Control Section */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
+      <Paper elevation={2} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+        <Typography variant="h6" gutterBottom component="h2">
           Server Control
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Button
             variant="contained"
-            color={serverStatus === 'running' ? 'success' : 'primary'}
+            color={serverStatus === 'running' ? 'success' : (serverStatus === 'starting' ? 'warning' : 'primary')}
             onClick={startApiServer}
             disabled={serverStatus === 'starting' || serverStatus === 'running'}
-            startIcon={serverStatus === 'starting' ? <CircularProgress size={20} /> : null}
+            startIcon={serverStatus === 'starting' ? <CircularProgress size={20} color="inherit" /> : null}
+            aria-label={serverStatus === 'running' ? 'API Server is running' : 'Start API Server'}
           >
-            {serverStatus === 'running' ? 'Server Running' : 'Start API Server'}
+            {serverStatus === 'running' ? 'Server Running' : (serverStatus === 'starting' ? 'Starting Server...' : 'Start API Server')}
           </Button>
           {serverMessage && (
             <Typography 
               variant="body2" 
-              color={serverStatus === 'error' ? 'error' : 'text.secondary'}
+              color={serverStatus === 'error' ? 'error' : (serverStatus === 'running' ? 'success.main' : 'text.secondary')}
+              sx={{ flexGrow: 1 }}
             >
-              {serverMessage}
+              Status: {serverMessage}
             </Typography>
           )}
         </Box>
       </Paper>
       
-      {loading && !selectedEntity && (
+      {isLoadingConfig && (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-          <CircularProgress />
+          <CircularProgress aria-label="Loading API configuration" />
+          <Typography sx={{ ml: 2 }}>Loading API Configuration...</Typography>
         </Box>
       )}
       
-      {error && (
-        <Alert severity="error" sx={{ mb: 4 }}>
+      {error && !isLoadingConfig && ( // Don't show general error if config is still loading
+        <Alert severity="error" sx={{ mb: 4 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
       
-      {entities.length === 0 && !loading ? (
+      {!isLoadingConfig && entities.length === 0 && !error && (
         <Alert severity="info" sx={{ mb: 4 }}>
-          No API configuration found. Please generate your API configuration first.
+          No API entities found or configuration is empty. Please generate/check your API configuration.
         </Alert>
-      ) : (
+      )}
+
+      {!isLoadingConfig && entities.length > 0 && (
         <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto' }}>
           <FormControl fullWidth sx={{ mb: 4 }}>
             <InputLabel id="entity-select-label">Select Entity</InputLabel>
             <Select
               labelId="entity-select-label"
               id="entity-select"
-              value={selectedEntity}
+              value={selectedEntityName}
               label="Select Entity"
               onChange={handleEntityChange}
-              disabled={loading}
+              disabled={isLoadingConfig || serverStatus !== 'running'} // Disable if server not running
+              aria-describedby={serverStatus !== 'running' ? "server-status-message" : undefined}
             >
               {entities.map((entity) => (
                 <MenuItem key={entity.name} value={entity.name}>
@@ -581,92 +525,86 @@ const ApiTester = () => {
                 </MenuItem>
               ))}
             </Select>
+            {serverStatus !== 'running' && (
+                 <Typography variant="caption" color="error" id="server-status-message" sx={{mt:1}}>
+                    Server is not running. Please start the server to select an entity.
+                 </Typography>
+            )}
           </FormControl>
           
-          {selectedEntity && (
+          {selectedEntityName && endpoints.length > 0 && (
             <>
-              <Typography variant="h6" gutterBottom>
-                Available Endpoints
+              <Typography variant="h6" gutterBottom component="h3">
+                Available Endpoints for "{selectedEntityName}"
               </Typography>
               
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 4 }}>
                 {endpoints.map((endpoint, index) => (
                   <Chip
-                    key={index}
+                    key={`${endpoint.method}-${endpoint.path}-${index}`} // More unique key
                     label={`${endpoint.method} ${endpoint.path}`}
                     onClick={() => handleEndpointChange(endpoint)}
-                    variant={selectedEndpoint === endpoint ? "filled" : "outlined"}
+                    variant={selectedEndpoint?.path === endpoint.path && selectedEndpoint?.method === endpoint.method ? "filled" : "outlined"}
+                    clickable
                     sx={{
-                      mb: 1,
-                      color: selectedEndpoint === endpoint ? 'white' : getMethodColor(endpoint.method),
-                      backgroundColor: selectedEndpoint === endpoint ? getMethodColor(endpoint.method) : 'transparent',
+                      fontWeight: selectedEndpoint?.path === endpoint.path && selectedEndpoint?.method === endpoint.method ? 'bold' : 'normal',
+                      color: selectedEndpoint?.path === endpoint.path && selectedEndpoint?.method === endpoint.method ? theme.palette.getContrastText(getMethodColor(endpoint.method)) : getMethodColor(endpoint.method),
+                      backgroundColor: selectedEndpoint?.path === endpoint.path && selectedEndpoint?.method === endpoint.method ? getMethodColor(endpoint.method) : 'transparent',
                       borderColor: getMethodColor(endpoint.method),
                       '&:hover': {
-                        backgroundColor: selectedEndpoint === endpoint ? getMethodColor(endpoint.method) : `${getMethodColor(endpoint.method)}20`,
+                        backgroundColor: getMethodColor(endpoint.method) + (selectedEndpoint?.path === endpoint.path && selectedEndpoint?.method === endpoint.method ? '' : '2A'), // Add alpha for hover on outlined
+                        boxShadow: selectedEndpoint?.path !== endpoint.path || selectedEndpoint?.method !== endpoint.method ? `0 0 5px ${getMethodColor(endpoint.method)}40` : 'none',
                       },
                     }}
+                    aria-pressed={selectedEndpoint?.path === endpoint.path && selectedEndpoint?.method === endpoint.method}
                   />
                 ))}
               </Box>
               
               {selectedEndpoint && (
-                <Card variant="outlined" sx={{ mb: 4, borderRadius: 2 }}>
+                <Card variant="outlined" sx={{ mb: 4, borderRadius: 2, boxShadow: theme.shadows[2] }}>
                   <CardContent>
-                    <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 500 }}>
-                      {selectedEndpoint.description}
+                    <Typography variant="h6" component="h4" gutterBottom sx={{ fontWeight: 'medium' }}>
+                      Testing: {selectedEndpoint.description}
                     </Typography>
                     
                     <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                       <Tabs 
                         value={tabValue} 
                         onChange={handleTabChange}
-                        sx={{
-                          '& .MuiTab-root': {
-                            color: 'text.secondary',
-                            '&.Mui-selected': {
-                              color: 'var(--primary-color)',
-                            },
-                          },
-                          '& .MuiTabs-indicator': {
-                            backgroundColor: 'var(--primary-color)',
-                          },
-                        }}
+                        aria-label="Request and Response Tabs"
+                        indicatorColor="primary"
+                        textColor="primary"
                       >
                         <Tab label="Request" id="api-tab-0" aria-controls="api-tabpanel-0" />
-                        <Tab label="Response" id="api-tab-1" aria-controls="api-tabpanel-1" />
+                        <Tab label="Response" id="api-tab-1" aria-controls="api-tabpanel-1" disabled={!response && !isSendingRequest} />
                       </Tabs>
                     </Box>
                     
                     <TabPanel value={tabValue} index={0}>
                       <Box sx={{ mb: 3 }}>
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{sm: "center"}} sx={{ mb: 1 }}>
                           <Chip 
                             label={selectedEndpoint.method} 
                             size="small" 
                             sx={{ 
                               backgroundColor: getMethodColor(selectedEndpoint.method),
-                              color: 'white',
+                              color: theme.palette.getContrastText(getMethodColor(selectedEndpoint.method)),
                               fontWeight: 'bold',
-                              minWidth: 60
+                              minWidth: 70, // Ensure method chip is wide enough
+                              mb: { xs: 1, sm: 0 }
                             }} 
                           />
-                          <Typography variant="subtitle2">URL</Typography>
+                          <Typography variant="body1" component="div" sx={{ fontFamily: 'monospace', wordBreak: 'break-all', flexGrow: 1 }}>
+                            {currentFullUrl}
+                          </Typography>
                         </Stack>
-                        <TextField
-                          fullWidth
-                          variant="outlined"
-                          value={`${apiUrl}${selectedEndpoint.path}`}
-                          InputProps={{
-                            readOnly: true,
-                            sx: { fontFamily: 'monospace' }
-                          }}
-                        />
                       </Box>
                       
                       {(selectedEndpoint.method === 'POST' || selectedEndpoint.method === 'PUT') && (
                         <Box sx={{ mb: 3 }}>
-                          <Typography variant="subtitle2" gutterBottom>
-                            Request Body
+                          <Typography variant="subtitle1" gutterBottom component="h5">
+                            Request Body (JSON)
                           </Typography>
                           <TextField
                             fullWidth
@@ -676,55 +614,85 @@ const ApiTester = () => {
                             value={requestBody}
                             onChange={(e) => setRequestBody(e.target.value)}
                             InputProps={{
-                              sx: { fontFamily: 'monospace' }
+                              sx: { fontFamily: 'monospace', fontSize: '0.9rem' }
                             }}
+                            placeholder="Enter JSON request body here..."
+                            aria-label="Request body input"
                           />
                         </Box>
                       )}
                       
-                      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
                         <Button
                           variant="contained"
                           onClick={makeApiRequest}
-                          disabled={loading}
-                          startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+                          disabled={isSendingRequest || serverStatus !== 'running'}
+                          startIcon={isSendingRequest ? <CircularProgress size={20} color="inherit" /> : null}
                           sx={{
+                            minWidth: 150,
                             backgroundColor: getMethodColor(selectedEndpoint.method),
+                            color: theme.palette.getContrastText(getMethodColor(selectedEndpoint.method)),
                             '&:hover': {
-                              backgroundColor: getMethodColor(selectedEndpoint.method) + 'D0',
+                              backgroundColor: theme.palette.augmentColor({ color: { main: getMethodColor(selectedEndpoint.method) } }).dark,
                             },
                           }}
+                          aria-label={`Send ${selectedEndpoint.method} request`}
                         >
-                          {loading ? 'Sending...' : 'Send Request'}
+                          {isSendingRequest ? 'Sending...' : 'Send Request'}
                         </Button>
                       </Box>
+                       {serverStatus !== 'running' && (
+                            <Alert severity="warning" sx={{mt:2}}>
+                                The API server is not running. Please start the server to send requests.
+                            </Alert>
+                        )}
                     </TabPanel>
                     
                     <TabPanel value={tabValue} index={1}>
-                      <Typography variant="subtitle2" gutterBottom>
+                      <Typography variant="subtitle1" gutterBottom component="h5">
                         Response
                       </Typography>
-                      <Paper 
-                        elevation={0}
-                        variant="outlined"
-                        sx={{ 
-                          p: 2, 
-                          maxHeight: '400px', 
-                          overflow: 'auto',
-                          backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                          fontFamily: 'monospace',
-                          fontSize: '14px',
-                          borderRadius: 2
-                        }}
-                      >
-                        <pre>{response || 'No response yet'}</pre>
-                      </Paper>
+                      {isSendingRequest && !response && (
+                        <Box sx={{display: 'flex', alignItems: 'center'}}>
+                           <CircularProgress size={20} sx={{mr: 1}}/> 
+                           <Typography>Waiting for response...</Typography>
+                        </Box>
+                      )}
+                      {!isSendingRequest && !response && (
+                        <Typography sx={{fontStyle: 'italic'}}>No response yet, or request not sent.</Typography>
+                      )}
+                      {response && (
+                        <Paper 
+                          elevation={0}
+                          variant="outlined"
+                          sx={{ 
+                            p: 2, 
+                            maxHeight: '500px', 
+                            overflow: 'auto',
+                            backgroundColor: theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100',
+                            borderColor: theme.palette.divider,
+                            fontFamily: 'monospace',
+                            fontSize: '0.875rem', // Slightly smaller for dense info
+                            borderRadius: 1, // Consistent with TextField
+                            whiteSpace: 'pre-wrap', // Ensure wrapping
+                            wordBreak: 'break-all', // Break long words/strings
+                          }}
+                          aria-live="polite" // Announce changes to screen readers
+                        >
+                          {response}
+                        </Paper>
+                      )}
                     </TabPanel>
                   </CardContent>
                 </Card>
               )}
             </>
           )}
+           {!isLoadingConfig && entities.length > 0 && selectedEntityName && endpoints.length === 0 && (
+                <Alert severity="info" sx={{mt: 2}}>
+                    No endpoints are configured or generated for the selected entity "{selectedEntityName}".
+                </Alert>
+           )}
         </Box>
       )}
     </Box>

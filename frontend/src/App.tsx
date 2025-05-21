@@ -56,6 +56,16 @@ type DataType = 'String' | 'Integer' | 'Float' | 'Boolean' | 'Date' | 'DateTime'
 // Drawer width
 const drawerWidth = 240;
 
+// Responsive main content style
+const getMainContentSx = (isMobile: boolean, drawerOpen: boolean) => ({
+  flexGrow: 1,
+  p: isMobile ? 1 : 3,
+  transition: 'margin 0.3s cubic-bezier(.4,0,.2,1)',
+  marginLeft: isMobile ? 0 : (drawerOpen ? `${drawerWidth}px` : 0),
+  minHeight: '100vh',
+  background: 'var(--background-color, #f7f7fa)'
+});
+
 /**
  * Main application content component
  * Handles the step-by-step process of configuring the API
@@ -608,7 +618,7 @@ function AppContent() {
       description: 'Establish connection to your MariaDB database to fetch tables.',
       content: <DatabaseConnection 
                 onConnect={async (config) => {
-                  const success = await handleConnect(config);
+                  const success = await handleConnect({ ...config, password: config.password || '', connection_string: config.connection_string || '' });
                   onConnectSuccess(success);
                 }} 
                 loading={loading} 
@@ -731,7 +741,7 @@ function AppContent() {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', background: 'var(--background-color, #f7f7fa)' }}>
       {/* App Bar */}
       <AppBar 
         position="fixed" 
@@ -739,12 +749,13 @@ function AppContent() {
         elevation={0}
         sx={{ 
           zIndex: theme.zIndex.drawer + 1,
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          backgroundColor: 'rgba(255, 255, 255, 0.92)',
           backdropFilter: 'blur(10px)',
-          borderBottom: '1px solid rgba(0,0,0,0.08)'
+          borderBottom: '1px solid rgba(0,0,0,0.08)',
+          boxShadow: '0 2px 8px 0 rgba(0,0,0,0.03)'
         }}
       >
-        <Toolbar>
+        <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }}>
           <IconButton
             edge="start"
             color="inherit"
@@ -762,7 +773,10 @@ function AppContent() {
               flexGrow: 1, 
               cursor: 'pointer',
               display: 'flex',
-              alignItems: 'center'
+              alignItems: 'center',
+              fontWeight: 700,
+              letterSpacing: '0.03em',
+              fontSize: { xs: '1.1rem', sm: '1.25rem' }
             }}
             onClick={goToMainMenu}
           >
@@ -773,7 +787,8 @@ function AppContent() {
                 mr: 1, 
                 fontWeight: 'bold',
                 display: 'flex',
-                alignItems: 'center'
+                alignItems: 'center',
+                fontSize: { xs: '1.2em', sm: '1.4em' }
               }}
             >
               Ruster
@@ -785,7 +800,7 @@ function AppContent() {
             color="inherit" 
             onClick={() => setShowDebug(!showDebug)}
             size="small"
-            sx={{ mr: 1 }}
+            sx={{ mr: 1, textTransform: 'none' }}
           >
             {showDebug ? 'Hide Debug' : 'Show Debug'}
           </Button>
@@ -816,7 +831,7 @@ function AppContent() {
               }
             }}
             size="small"
-            sx={{ mr: 1 }}
+            sx={{ mr: 1, textTransform: 'none', borderRadius: 2 }}
           >
             Import JSON
           </Button>
@@ -828,7 +843,9 @@ function AppContent() {
             size="small"
             startIcon={<HomeIcon />}
             sx={{
-              display: { xs: 'none', sm: 'flex' }
+              display: { xs: 'none', sm: 'flex' },
+              textTransform: 'none',
+              borderRadius: 2
             }}
           >
             Home
@@ -847,86 +864,68 @@ function AppContent() {
       />
       
       {/* Main content */}
-      <Box component="main" sx={{ flexGrow: 1, p: 0 }}>
-        <Toolbar />
+      <Box component="main" sx={getMainContentSx(isMobile, !isMobile && drawerOpen)}>
+        <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }} />
         {pageContent}
         
-        {/* This is a hidden button that can be triggered programmatically */}
-        <Box sx={{ display: 'none' }}>
-          <input
-            type="file"
-            id="hidden-json-file-input"
-            accept=".json"
-            style={{ display: 'none' }}
-            onChange={(event) => {
-              console.log("Hidden file input change detected");
-              const file = event.target.files?.[0];
-              if (!file) {
-                console.error("No file selected in hidden input");
-                return;
-              }
-              
-              console.log("File selected in hidden input:", file.name, file.size, "bytes");
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                try {
-                  console.log("FileReader onload triggered for hidden input");
-                  const content = e.target?.result as string;
-                  console.log(`Loading JSON file content from hidden input (${content.length} bytes):`, 
-                              content.substring(0, 100) + "...");
-                  const parsedJson = JSON.parse(content);
-                  
-                  // Basic validation
-                  if (parsedJson && typeof parsedJson === 'object') {
-                    console.log("Calling handleJsonImport from hidden input");
-                    handleJsonImport(parsedJson);
-                  } else {
-                    console.error("Invalid JSON format in hidden input");
-                    setAlert({
-                      message: 'Invalid JSON format',
-                      severity: 'error'
-                    });
-                  }
-                } catch (error) {
-                  console.error('Error parsing JSON file from hidden input:', error);
+        {/* Hidden file input for JSON import (no visible button) */}
+        <input
+          type="file"
+          id="hidden-json-file-input"
+          accept=".json"
+          style={{ display: 'none' }}
+          onChange={(event) => {
+            console.log("Hidden file input change detected");
+            const file = event.target.files?.[0];
+            if (!file) {
+              console.error("No file selected in hidden input");
+              return;
+            }
+            
+            console.log("File selected in hidden input:", file.name, file.size, "bytes");
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              try {
+                console.log("FileReader onload triggered for hidden input");
+                const content = e.target?.result as string;
+                console.log(`Loading JSON file content from hidden input (${content.length} bytes):`, 
+                            content.substring(0, 100) + "...");
+                const parsedJson = JSON.parse(content);
+                
+                // Basic validation
+                if (parsedJson && typeof parsedJson === 'object') {
+                  console.log("Calling handleJsonImport from hidden input");
+                  handleJsonImport(parsedJson);
+                } else {
+                  console.error("Invalid JSON format in hidden input");
                   setAlert({
-                    message: 'Failed to parse JSON file',
+                    message: 'Invalid JSON format',
                     severity: 'error'
                   });
                 }
-              };
-              
-              reader.onerror = (e) => {
-                console.error("FileReader error in hidden input:", e);
+              } catch (error) {
+                console.error('Error parsing JSON file from hidden input:', error);
                 setAlert({
-                  message: 'Error reading file',
+                  message: 'Failed to parse JSON file',
                   severity: 'error'
                 });
-              };
-              
-              reader.readAsText(file);
-              
-              // Reset the file input
-              event.target.value = '';
-            }}
-          />
-          
-          <Button
-            id="json-import-button-hidden"
-            onClick={() => {
-              console.log("Hidden json-import-button clicked");
-              const fileInput = document.getElementById('hidden-json-file-input') as HTMLInputElement;
-              if (fileInput) {
-                console.log("Clicking hidden file input");
-                fileInput.click();
-              } else {
-                console.error("Hidden file input not found");
               }
-            }}
-          >
-            Import JSON (Hidden)
-          </Button>
-        </Box>
+            };
+            
+            reader.onerror = (e) => {
+              console.error("FileReader error in hidden input:", e);
+              setAlert({
+                message: 'Error reading file',
+                severity: 'error'
+              });
+            };
+            
+            reader.readAsText(file);
+            
+            // Reset the file input
+            event.target.value = '';
+          }}
+        />
       </Box>
       
       {/* Debug console */}
@@ -938,6 +937,7 @@ function AppContent() {
         autoHideDuration={5000}
         onClose={() => setAlert(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{ zIndex: theme.zIndex.snackbar || 1400 }}
       >
         {alert ? (
           <Alert 
@@ -948,16 +948,7 @@ function AppContent() {
           >
             {alert.message}
           </Alert>
-        ) : (
-          <Alert
-            onClose={() => setAlert(null)}
-            severity="info"
-            variant="filled"
-            sx={{ width: '100%' }}
-          >
-            No alerts
-          </Alert>
-        )}
+        ) : undefined}
       </Snackbar>
     </Box>
   );
