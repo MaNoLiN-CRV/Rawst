@@ -117,17 +117,13 @@ async fn body_to_string(body: rocket::Data<'_>)
 /// Common request processing logic
 pub async fn process_request(api_request: ApiRequest, state: &State<RocketApiState<serde_json::Value>>) 
 -> ApiResponse<serde_json::Value> {
-    // Clone adapter for use in spawn_blocking
+    
     let api_adapter_clone = state.api_adapter.clone();
-    
-    // Create a timeout future (30 seconds)
     let timeout_duration = std::time::Duration::from_secs(30);
-    
-    // Use tokio::time::timeout to prevent hanging requests
     match tokio::time::timeout(
         timeout_duration,
         tokio::task::spawn_blocking(move || {
-            // Log that we're starting the request processing
+            // DEBUG
             eprintln!("Processing request: {:?} {}", api_request.method, api_request.path);
             let result = api_adapter_clone.handle_request(api_request);
             eprintln!("Request processing completed with result: {:?}", result.is_ok());

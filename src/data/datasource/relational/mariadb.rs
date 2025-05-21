@@ -470,22 +470,36 @@ where
         
         // Execute the query and map the results
         let results = self.runtime.block_on(async {
-            let rows = sqlx::query(&query)
-                .fetch_all(pool)
-                .await
-                .map_err(|e| DataSourceError::QueryError(
-                    format!("Error executing SELECT query: {}", e)
-                ))?;
+            // Añadir un timeout explícito para la consulta
+            let query_future = sqlx::query(&query).fetch_all(pool);
+            let timeout_duration = std::time::Duration::from_secs(10); 
             
-            let mut entities = Vec::with_capacity(rows.len());
-            for row in rows {
-                match self.map_row_to_entity::<T>(row, &entity_name) {
-                    Ok(entity) => entities.push(entity),
-                    Err(e) => return Err(e)
+            match tokio::time::timeout(timeout_duration, query_future).await {
+                Ok(result) => {
+                    match result {
+                        Ok(rows) => {
+                            let mut entities = Vec::with_capacity(rows.len());
+                            for row in rows {
+                                match self.map_row_to_entity::<T>(row, &entity_name) {
+                                    Ok(entity) => entities.push(entity),
+                                    Err(e) => return Err(e)
+                                }
+                            }
+                            
+                            Ok::<Vec<T>, Box<dyn Error>>(entities)
+                        },
+                        Err(e) => Err(Box::new(DataSourceError::QueryError(
+                            format!("Error executing SELECT query: {}", e)
+                        )) as Box<dyn Error>)
+                    }
+                },
+                Err(_) => {
+                    // La consulta excedió el timeout
+                    Err(Box::new(DataSourceError::QueryError(
+                        format!("Query timed out after {} seconds", timeout_duration.as_secs())
+                    )) as Box<dyn Error>)
                 }
             }
-            
-            Ok::<Vec<T>, Box<dyn Error>>(entities)
         })?;
         
         Ok(results)
