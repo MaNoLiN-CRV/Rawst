@@ -130,11 +130,11 @@ const ApiTester: React.FC = () => {
     setTabValue(0); 
   }, [setSelectedEndpoint]);
   
-  const handleTabChange = useCallback((event: React.SyntheticEvent, newValue: number): void => {
+  const handleTabChange = useCallback((_event: React.SyntheticEvent, newValue: number): void => {
     setTabValue(newValue);
   }, []);
   
-  const handleMonitoringTabChange = useCallback((event: React.SyntheticEvent, newValue: number): void => {
+  const handleMonitoringTabChange = useCallback((_event: React.SyntheticEvent, newValue: number): void => {
     setMonitoringTabValue(newValue);
     if (newValue === 0) fetchServerMetrics();
     else if (newValue === 1) fetchServerLogs();

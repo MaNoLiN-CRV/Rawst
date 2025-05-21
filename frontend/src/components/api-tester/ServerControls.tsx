@@ -1,11 +1,10 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import {
   Box,
   Typography,
   Paper,
   Button,
   CircularProgress,
-  useTheme,
   IconButton,
   Grid,
   LinearProgress,
@@ -37,7 +36,6 @@ const ServerControls = memo(({
   onRefresh, 
   message 
 }: ServerControlsProps) => {
-  const theme = useTheme();
   
   return (
     <Paper elevation={2} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
