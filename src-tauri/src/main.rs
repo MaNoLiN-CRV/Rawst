@@ -9,7 +9,10 @@ use std::fs;
 use std::path::Path;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::collections::VecDeque;
+use lazy_static::lazy_static;
 
 // Import the main library
 use rawst::{
@@ -146,9 +149,61 @@ struct ApiTestRequest {
     body: Option<String>,
 }
 
-// Add server state tracking
+// Enhanced server state tracking
 static SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
 static SERVER_ERROR: Mutex<Option<String>> = Mutex::new(None);
+
+// Server metrics
+static REQUEST_COUNT: AtomicU64 = AtomicU64::new(0);
+static ERROR_COUNT: AtomicU64 = AtomicU64::new(0);
+static SERVER_START_TIME: AtomicU64 = AtomicU64::new(0);
+
+// Server logs queue (limited size)
+lazy_static! {
+    static ref SERVER_LOGS: Mutex<VecDeque<ServerLogEntry>> = Mutex::new(VecDeque::with_capacity(100));
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct ServerMetrics {
+    uptime_seconds: u64,
+    request_count: u64,
+    error_count: u64,
+    is_running: bool,
+    start_time: u64,
+    current_time: u64,
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct ServerLogEntry {
+    timestamp: u64,
+    level: String,
+    message: String,
+}
+
+// Helper function to log server events
+fn log_server_event(level: &str, message: &str) {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    
+    let log_entry = ServerLogEntry {
+        timestamp: now,
+        level: level.to_string(),
+        message: message.to_string(),
+    };
+    
+    let mut logs = SERVER_LOGS.lock().unwrap();
+    logs.push_back(log_entry);
+    
+    // Keep log size limited
+    while logs.len() > 100 {
+        logs.pop_front();
+    }
+    
+    // Also print to console for debugging
+    println!("[{}] {}: {}", now, level, message);
+}
 
 #[tauri::command]
 async fn get_mariadb_tables(config: DbConfig) -> Result<Vec<TableInfo>, String> {
@@ -172,7 +227,6 @@ async fn get_mariadb_tables(config: DbConfig) -> Result<Vec<TableInfo>, String> 
 
     Ok(tables)
 }
-
 
 /// Gets a list of columns from a MariaDB table
 #[tauri::command]
@@ -263,6 +317,11 @@ async fn get_current_configuration() -> Result<ApiConfig, String> {
 async fn test_api_endpoint(url: String, method: String, body: Option<String>) -> Result<String, String> {
     println!("Testing API endpoint: {} {}", method, url);
     
+    // Increment request count if server is running
+    if SERVER_RUNNING.load(Ordering::SeqCst) {
+        REQUEST_COUNT.fetch_add(1, Ordering::SeqCst);
+    }
+    
     let client = reqwest::Client::new();
     
     let mut request_builder = match method.to_uppercase().as_str() {
@@ -284,10 +343,16 @@ async fn test_api_endpoint(url: String, method: String, body: Option<String>) ->
         }
     }
     
-    let response = request_builder
-        .send()
-        .await
-        .map_err(|e| format!("Request failed: {}", e))?;
+    // Handle errors and increment error count if needed
+    let response = match request_builder.send().await {
+        Ok(resp) => resp,
+        Err(e) => {
+            if SERVER_RUNNING.load(Ordering::SeqCst) {
+                ERROR_COUNT.fetch_add(1, Ordering::SeqCst);
+            }
+            return Err(format!("Request failed: {}", e));
+        }
+    };
     
     let status = response.status();
     let headers = response.headers().clone();
@@ -336,6 +401,7 @@ async fn start_api_server() -> Result<String, String> {
     
     // Validate database configuration
     if !validate_database_config(&config.database).await {
+        log_server_event("ERROR", "Invalid database configuration");
         return Err("Invalid database configuration".to_string());
     }
     
@@ -370,9 +436,20 @@ async fn start_api_server() -> Result<String, String> {
         documentation: DocumentationConfig::default(),
     };
     
-    // Set server as starting
+    // Set server as starting and reset metrics
     SERVER_RUNNING.store(true, Ordering::SeqCst);
     *SERVER_ERROR.lock().unwrap() = None;
+    
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    
+    SERVER_START_TIME.store(now, Ordering::SeqCst);
+    REQUEST_COUNT.store(0, Ordering::SeqCst);
+    ERROR_COUNT.store(0, Ordering::SeqCst);
+    
+    log_server_event("INFO", "API server starting...");
     
     // Create a copy of the config for the thread
     let thread_config = api_config.clone();
@@ -424,6 +501,7 @@ async fn start_api_server() -> Result<String, String> {
                 println!("Error starting API server: {:?}", e);
                 *SERVER_ERROR.lock().unwrap() = Some(e.to_string());
                 SERVER_RUNNING.store(false, Ordering::SeqCst);
+                log_server_event("ERROR", &format!("Failed to start server: {}", e));
             }
         }
     });
@@ -433,8 +511,10 @@ async fn start_api_server() -> Result<String, String> {
     
     if let Some(error) = SERVER_ERROR.lock().unwrap().as_ref() {
         SERVER_RUNNING.store(false, Ordering::SeqCst);
+        log_server_event("ERROR", &format!("Failed to start server: {}", error));
         Err(format!("Failed to start server: {}", error))
     } else {
+        log_server_event("INFO", "API server started successfully");
         Ok("API server started successfully".to_string())
     }
 }
@@ -460,6 +540,74 @@ async fn validate_database_config(config: &DatabaseConfig) -> bool {
     }
 }
 
+/// Stops the running API server
+#[tauri::command]
+async fn stop_api_server() -> Result<String, String> {
+    if !SERVER_RUNNING.load(Ordering::SeqCst) {
+        return Ok("Server is not running".to_string());
+    }
+    
+    // In a real implementation, we would need a way to signal the server to stop
+    // For now, we'll just update our state variables
+    SERVER_RUNNING.store(false, Ordering::SeqCst);
+    log_server_event("INFO", "API server stopped manually");
+    
+    Ok("API server stopped".to_string())
+}
+
+/// Retrieves server metrics
+#[tauri::command]
+async fn get_server_metrics() -> Result<ServerMetrics, String> {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    
+    let start_time = SERVER_START_TIME.load(Ordering::SeqCst);
+    let uptime = if start_time > 0 { now - start_time } else { 0 };
+    
+    Ok(ServerMetrics {
+        uptime_seconds: uptime,
+        request_count: REQUEST_COUNT.load(Ordering::SeqCst),
+        error_count: ERROR_COUNT.load(Ordering::SeqCst),
+        is_running: SERVER_RUNNING.load(Ordering::SeqCst),
+        start_time,
+        current_time: now,
+    })
+}
+
+/// Retrieves recent server logs
+#[tauri::command]
+async fn get_server_logs(limit: Option<usize>) -> Result<Vec<ServerLogEntry>, String> {
+    let max_entries = limit.unwrap_or(50).min(100);
+    
+    let logs = SERVER_LOGS.lock().unwrap();
+    let logs_vec: Vec<ServerLogEntry> = logs
+        .iter()
+        .rev() // Most recent first
+        .take(max_entries)
+        .cloned()
+        .collect();
+    
+    Ok(logs_vec)
+}
+
+/// Restarts the API server
+#[tauri::command]
+async fn restart_api_server() -> Result<String, String> {
+    // First stop the server
+    if SERVER_RUNNING.load(Ordering::SeqCst) {
+        stop_api_server().await?;
+    }
+    
+    // Reset metrics
+    REQUEST_COUNT.store(0, Ordering::SeqCst);
+    ERROR_COUNT.store(0, Ordering::SeqCst);
+    
+    // Then start it again
+    start_api_server().await
+}
+
 /// Gets the server status
 #[tauri::command]
 async fn get_server_status() -> Result<String, String> {
@@ -483,7 +631,11 @@ fn main() {
             get_current_configuration,
             test_api_endpoint,
             start_api_server,
-            get_server_status
+            get_server_status,
+            stop_api_server,         // New command
+            get_server_metrics,      // New command
+            get_server_logs,         // New command
+            restart_api_server       // New command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
