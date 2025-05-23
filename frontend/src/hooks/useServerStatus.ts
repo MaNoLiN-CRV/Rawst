@@ -45,7 +45,14 @@ export const useServerStatus = () => {
 
   const checkServerStatus = useCallback(async (): Promise<void> => {
     try {
-      const statusResult = await invoke<string>('get_server_status');
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Server status check timeout')), 5000)
+      );
+      
+      const statusPromise = invoke<string>('get_server_status');
+      const statusResult = await Promise.race([statusPromise, timeoutPromise]);
+      
       if (statusResult.startsWith('error:')) {
         setServerStatus('error');
         setServerMessage(statusResult.substring(6));
@@ -73,7 +80,15 @@ export const useServerStatus = () => {
     try {
       setServerStatus('starting');
       setServerMessage('Attempting to start API server...');
-      const result = await invoke<string>('start_api_server');
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Server start timeout after 30 seconds')), 30000)
+      );
+      
+      const startPromise = invoke<string>('start_api_server');
+      const result = await Promise.race([startPromise, timeoutPromise]);
+      
       if (result.toLowerCase().includes("error") || result.toLowerCase().includes("fail")) {
           setServerStatus('error');
           setServerMessage(result || 'Failed to start API server.');

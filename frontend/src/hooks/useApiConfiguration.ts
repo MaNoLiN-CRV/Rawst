@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { 
     ApiEntity, 
@@ -16,9 +16,10 @@ export const useApiConfiguration = (serverStatus: ServerStatus) => {
   const [selectedEntityName, setSelectedEntityName] = useState<string>('');
   const [selectedEndpoint, setSelectedEndpoint] = useState<EndpointConfig | null>(null);
   const [endpoints, setEndpoints] = useState<EndpointConfig[]>([]);
-  const [isLoadingConfig, setIsLoadingConfig] = useState<boolean>(true);
+  const [isLoadingConfig, setIsLoadingConfig] = useState<boolean>(false); // Changed to false initially
   const [error, setError] = useState<string | null>(null);
   const [apiUrl, setApiUrl] = useState<string>('http://localhost:8000/api');
+  const isFetchingRef = useRef<boolean>(false); // Prevent multiple simultaneous fetches
 
   const createEndpointsForEntity = useCallback((entity: ApiEntity): EndpointConfig[] => {
     const entityName = entity.name;
@@ -74,10 +75,29 @@ export const useApiConfiguration = (serverStatus: ServerStatus) => {
   }, []);
 
   const fetchApiConfiguration = useCallback(async (): Promise<void> => {
+    // Prevent multiple simultaneous fetches
+    if (isFetchingRef.current) {
+      console.log('Configuration fetch already in progress, skipping...');
+      return;
+    }
+
     try {
+      isFetchingRef.current = true;
       setIsLoadingConfig(true);
       setError(null);
-      const config = await invoke<ApiConfiguration | null>('get_current_configuration');
+      
+      console.log('Starting configuration fetch...');
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Configuration fetch timeout')), 10000)
+      );
+      
+      const configPromise = invoke<ApiConfiguration | null>('get_current_configuration');
+      
+      const config = await Promise.race([configPromise, timeoutPromise]);
+      
+      console.log('Configuration fetch completed:', config);
       
       if (config && config.entities_basic && config.entities_basic.length > 0) {
         setEntities(config.entities_basic);
@@ -106,16 +126,39 @@ export const useApiConfiguration = (serverStatus: ServerStatus) => {
       console.error('Error fetching API configuration:', err);
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(errorMessage || 'Unknown error loading API configuration');
+      // Reset entities state on error
+      setEntities([]);
+      setSelectedEntityName('');
+      setEndpoints([]);
+      setSelectedEndpoint(null);
     } finally {
       setIsLoadingConfig(false);
+      isFetchingRef.current = false;
     }
   }, [createEndpointsForEntity]);
 
   useEffect(() => {
+    // Always try to fetch configuration on mount, regardless of server status
+    fetchApiConfiguration();
+    
+    // Also fetch when server becomes running
     if (serverStatus === 'running') {
-      fetchApiConfiguration();
+      // Small delay to ensure server is fully ready
+      const timer = setTimeout(fetchApiConfiguration, 1000);
+      return () => clearTimeout(timer);
     }
-  }, [serverStatus, fetchApiConfiguration]);
+    
+    // Clear loading state if server has error or is stopped
+    if (serverStatus === 'error' || serverStatus === 'stopped') {
+      setIsLoadingConfig(false);
+    }
+  }, [serverStatus]); // Removed fetchApiConfiguration from dependencies to prevent infinite loop
+
+  const manualRefreshConfig = useCallback(async (): Promise<void> => {
+    console.log('Manual refresh triggered');
+    isFetchingRef.current = false; // Reset the flag to allow manual refresh
+    await fetchApiConfiguration();
+  }, [fetchApiConfiguration]);
 
   return {
     entities,
@@ -128,6 +171,7 @@ export const useApiConfiguration = (serverStatus: ServerStatus) => {
     createEndpointsForEntity,
     generateSampleBody,
     fetchApiConfiguration,
+    manualRefreshConfig,
     setSelectedEntityName,
     setSelectedEndpoint,
     setEndpoints,

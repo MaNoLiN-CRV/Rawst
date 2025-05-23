@@ -400,10 +400,16 @@ async fn start_api_server() -> Result<String, String> {
     let config = get_current_configuration().await?;
     
     // Validate database configuration
+    println!("Validating database configuration...");
     if !validate_database_config(&config.database).await {
-        log_server_event("ERROR", "Invalid database configuration");
-        return Err("Invalid database configuration".to_string());
+        let error_msg = "Invalid database configuration. Please check your database connection settings.";
+        log_server_event("ERROR", error_msg);
+        SERVER_RUNNING.store(false, Ordering::SeqCst);
+        *SERVER_ERROR.lock().unwrap() = Some(error_msg.to_string());
+        return Err(error_msg.to_string());
     }
+    
+    println!("Database configuration validated successfully");
     
     // Convert the configuration to the format expected by the API server
     let api_config = Config {
@@ -529,14 +535,113 @@ async fn validate_database_config(config: &DatabaseConfig) -> bool {
         config.database_name
     );
 
-    match Pool::new(url.as_str()) {
-        Ok(pool) => {
-            match pool.get_conn() {
-                Ok(_) => true,
-                Err(_) => false
+    println!("Validating database connection: {}", url.replace(&config.password, "***"));
+    log_server_event("INFO", &format!("Validating database connection to {}:{}", config.host, config.port.unwrap_or(3306)));
+
+    // First, try to check if MySQL service is running by attempting a basic connection
+    let basic_url = format!(
+        "mysql://{}:{}@{}:{}",
+        config.username,
+        config.password,
+        config.host,
+        config.port.unwrap_or(3306)
+    );
+
+    println!("Step 1: Testing basic MySQL server connection...");
+    match Pool::new(basic_url.as_str()) {
+        Ok(basic_pool) => {
+            match basic_pool.get_conn() {
+                Ok(mut conn) => {
+                    println!("✓ MySQL server is running and credentials are valid");
+                    log_server_event("INFO", "MySQL server connection successful");
+                    
+                    // Test if we can connect to the specific database
+                    println!("Step 2: Testing specific database access...");
+                    match Pool::new(url.as_str()) {
+                        Ok(pool) => {
+                            match pool.get_conn() {
+                                Ok(mut db_conn) => {
+                                    // Try a simple query to ensure the database is accessible
+                                    match db_conn.query_first::<String, _>("SELECT 1 as test") {
+                                        Ok(Some(_)) => {
+                                            println!("✓ Database '{}' is accessible and working", config.database_name);
+                                            log_server_event("INFO", &format!("Database '{}' validation successful", config.database_name));
+                                            true
+                                        },
+                                        Ok(None) => {
+                                            println!("✗ Database query returned no result");
+                                            log_server_event("ERROR", "Database query returned no result");
+                                            false
+                                        },
+                                        Err(e) => {
+                                            println!("✗ Database query failed: {}", e);
+                                            log_server_event("ERROR", &format!("Database query failed: {}", e));
+                                            false
+                                        }
+                                    }
+                                },
+                                Err(e) => {
+                                    println!("✗ Cannot access database '{}': {}", config.database_name, e);
+                                    log_server_event("ERROR", &format!("Cannot access database '{}': {}", config.database_name, e));
+                                    
+                                    // Check if database exists
+                                    match conn.query_first::<String, _>(format!("SHOW DATABASES LIKE '{}'", config.database_name)) {
+                                        Ok(Some(_)) => {
+                                            println!("  - Database '{}' exists but access failed", config.database_name);
+                                            log_server_event("ERROR", &format!("Database '{}' exists but access denied", config.database_name));
+                                        },
+                                        Ok(None) => {
+                                            println!("  - Database '{}' does not exist", config.database_name);
+                                            log_server_event("ERROR", &format!("Database '{}' does not exist", config.database_name));
+                                        },
+                                        Err(db_check_err) => {
+                                            println!("  - Cannot check if database exists: {}", db_check_err);
+                                            log_server_event("ERROR", &format!("Cannot verify database existence: {}", db_check_err));
+                                        }
+                                    }
+                                    false
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            println!("✗ Failed to create database pool for '{}': {}", config.database_name, e);
+                            log_server_event("ERROR", &format!("Failed to create database pool: {}", e));
+                            false
+                        }
+                    }
+                },
+                Err(e) => {
+                    println!("✗ MySQL server connection failed: {}", e);
+                    log_server_event("ERROR", &format!("MySQL server connection failed: {}", e));
+                    
+                    // Provide helpful diagnostics
+                    if e.to_string().contains("Connection refused") {
+                        println!("  → MySQL server is not running on {}:{}", config.host, config.port.unwrap_or(3306));
+                        log_server_event("ERROR", "MySQL server appears to be down (connection refused)");
+                    } else if e.to_string().contains("Access denied") {
+                        println!("  → Invalid username '{}' or password", config.username);
+                        log_server_event("ERROR", &format!("Invalid credentials for user '{}'", config.username));
+                    } else if e.to_string().contains("timeout") {
+                        println!("  → Connection timeout - check network connectivity");
+                        log_server_event("ERROR", "Database connection timeout");
+                    } else {
+                        println!("  → Check your MySQL server configuration and network settings");
+                        log_server_event("ERROR", "Database connection failed - check server configuration");
+                    }
+                    false
+                }
             }
         }
-        Err(_) => false
+        Err(e) => {
+            println!("✗ Failed to create MySQL connection pool: {}", e);
+            log_server_event("ERROR", &format!("Failed to create connection pool: {}", e));
+            
+            if e.to_string().contains("Invalid connection URL") {
+                println!("  → Check database configuration parameters");
+                log_server_event("ERROR", "Invalid database connection URL format");
+            }
+            false
+        }
     }
 }
 
@@ -622,6 +727,148 @@ async fn get_server_status() -> Result<String, String> {
     }
 }
 
+/// Tests the database connection with current configuration
+#[tauri::command]
+async fn test_database_connection() -> Result<String, String> {
+    println!("Testing database connection...");
+    
+    let config = get_current_configuration().await?;
+    
+    let url = format!(
+        "mysql://{}:{}@{}:{}/{}",
+        config.database.username,
+        config.database.password,
+        config.database.host,
+        config.database.port.unwrap_or(3306),
+        config.database.database_name
+    );
+
+    println!("Attempting to connect to: {}", url.replace(&config.database.password, "***"));
+
+    // Enhanced connection testing with detailed diagnostics
+    let basic_url = format!(
+        "mysql://{}:{}@{}:{}",
+        config.database.username,
+        config.database.password,
+        config.database.host,
+        config.database.port.unwrap_or(3306)
+    );
+
+    // Step 1: Test basic MySQL server connection
+    match Pool::new(basic_url.as_str()) {
+        Ok(basic_pool) => {
+            match basic_pool.get_conn() {
+                Ok(mut conn) => {
+                    let mut result = String::new();
+                    result.push_str("✓ MySQL server is running and credentials are valid\n");
+                    
+                    // Get server version
+                    match conn.query_first::<String, _>("SELECT VERSION() as version") {
+                        Ok(Some(version)) => {
+                            result.push_str(&format!("✓ MySQL Server Version: {}\n", version));
+                        },
+                        Ok(None) => {},
+                        Err(_) => {}
+                    }
+                    
+                    // Step 2: Test specific database access
+                    match Pool::new(url.as_str()) {
+                        Ok(pool) => {
+                            match pool.get_conn() {
+                                Ok(mut db_conn) => {
+                                    // Test database with a simple query
+                                    match db_conn.query_first::<String, _>("SELECT 1 as test") {
+                                        Ok(Some(_)) => {
+                                            result.push_str(&format!("✓ Database '{}' is accessible and working\n", config.database.database_name));
+                                            
+                                            // Get database info
+                                            match db_conn.query_first::<String, _>("SELECT DATABASE() as current_db") {
+                                                Ok(Some(db_name)) => {
+                                                    result.push_str(&format!("✓ Current database: {}\n", db_name));
+                                                },
+                                                Ok(None) => {},
+                                                Err(_) => {}
+                                            }
+                                            
+                                            // Count tables
+                                            match db_conn.query_first::<i64, _>("SELECT COUNT(*) as table_count FROM information_schema.tables WHERE table_schema = DATABASE()") {
+                                                Ok(Some(count)) => {
+                                                    result.push_str(&format!("✓ Tables found: {}\n", count));
+                                                },
+                                                Ok(None) => {},
+                                                Err(_) => {}
+                                            }
+                                            
+                                            result.push_str("\n🎉 Database connection test successful!");
+                                            Ok(result)
+                                        },
+                                        Ok(None) => {
+                                            result.push_str("✗ Database query returned no result\n");
+                                            Err(result)
+                                        },
+                                        Err(e) => {
+                                            result.push_str(&format!("✗ Database query failed: {}\n", e));
+                                            Err(result)
+                                        }
+                                    }
+                                },
+                                Err(e) => {
+                                    result.push_str(&format!("✗ Cannot access database '{}': {}\n", config.database.database_name, e));
+                                    
+                                    // Check if database exists
+                                    match conn.query_first::<String, _>(format!("SHOW DATABASES LIKE '{}'", config.database.database_name)) {
+                                        Ok(Some(_)) => {
+                                            result.push_str(&format!("  → Database '{}' exists but access was denied\n", config.database.database_name));
+                                            result.push_str("  → Check user permissions for this database\n");
+                                        },
+                                        Ok(None) => {
+                                            result.push_str(&format!("  → Database '{}' does not exist\n", config.database.database_name));
+                                            result.push_str("  → Create the database or use an existing one\n");
+                                        },
+                                        Err(db_check_err) => {
+                                            result.push_str(&format!("  → Cannot check if database exists: {}\n", db_check_err));
+                                        }
+                                    }
+                                    Err(result)
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            result.push_str(&format!("✗ Failed to create database pool for '{}': {}\n", config.database.database_name, e));
+                            Err(result)
+                        }
+                    }
+                },
+                Err(e) => {
+                    let mut error_msg = format!("✗ MySQL server connection failed: {}\n", e);
+                    
+                    if e.to_string().contains("Connection refused") {
+                        error_msg.push_str(&format!("  → MySQL server is not running on {}:{}\n", config.database.host, config.database.port.unwrap_or(3306)));
+                        error_msg.push_str("  → Start MySQL service: sudo systemctl start mysql\n");
+                        error_msg.push_str("  → Or check if MySQL is running: sudo systemctl status mysql\n");
+                    } else if e.to_string().contains("Access denied") {
+                        error_msg.push_str(&format!("  → Invalid username '{}' or password\n", config.database.username));
+                        error_msg.push_str("  → Verify credentials in MySQL: mysql -u root -p\n");
+                    } else if e.to_string().contains("timeout") {
+                        error_msg.push_str("  → Connection timeout - check network connectivity\n");
+                        error_msg.push_str(&format!("  → Try: telnet {} {}\n", config.database.host, config.database.port.unwrap_or(3306)));
+                    } else {
+                        error_msg.push_str("  → Check your MySQL server configuration and network settings\n");
+                    }
+                    Err(error_msg)
+                }
+            }
+        }
+        Err(e) => {
+            let mut error_msg = format!("✗ Failed to create MySQL connection pool: {}\n", e);
+            if e.to_string().contains("Invalid connection URL") {
+                error_msg.push_str("  → Check database configuration parameters\n");
+            }
+            Err(error_msg)
+        }
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -635,7 +882,8 @@ fn main() {
             stop_api_server,         // New command
             get_server_metrics,      // New command
             get_server_logs,         // New command
-            restart_api_server       // New command
+            restart_api_server,      // New command
+            test_database_connection  // New command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

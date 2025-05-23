@@ -97,12 +97,171 @@ code, pre {
 
 /* Glass effect */
 .glass-effect {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: var(--shadow-md);
-  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+  box-shadow: 
+    0 8px 32px 0 rgba(31, 38, 135, 0.37),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all var(--transition-normal);
   border-radius: var(--radius-lg);
+  color: rgba(30, 30, 50, 0.9) !important;
+}
+
+.glass-effect:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 12px 40px 0 rgba(31, 38, 135, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.glass-effect-dark {
+  background: rgba(30, 30, 50, 0.35);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 8px 32px 0 rgba(0, 0, 0, 0.37),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all var(--transition-normal);
+  border-radius: var(--radius-lg);
+}
+
+.glass-effect-dark:hover {
+  background: rgba(30, 30, 50, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 12px 40px 0 rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Floating card effect */
+.floating-card {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 4px 24px 0 rgba(31, 38, 135, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-xl);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+  color: rgba(30, 30, 50, 0.9) !important;
+}
+
+.floating-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0) 0%, 
+    rgba(255, 255, 255, 0.4) 50%, 
+    rgba(255, 255, 255, 0) 100%);
+}
+
+.floating-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 
+    0 8px 40px 0 rgba(31, 38, 135, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Gradient button effect */
+.gradient-button {
+  background: linear-gradient(135deg, 
+    rgba(99, 102, 241, 0.8) 0%, 
+    rgba(139, 92, 246, 0.8) 50%, 
+    rgba(244, 114, 182, 0.8) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-md);
+  color: white !important;
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.gradient-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 255, 255, 0.3), 
+    transparent);
+  transition: left 0.5s;
+}
+
+.gradient-button:hover::before {
+  left: 100%;
+}
+
+.gradient-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+  background: linear-gradient(135deg, 
+    rgba(99, 102, 241, 0.9) 0%, 
+    rgba(139, 92, 246, 0.9) 50%, 
+    rgba(244, 114, 182, 0.9) 100%);
+}
+
+/* Animated background gradients */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animated-gradient {
+  background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+}
+
+/* Loading shimmer effect */
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 468px 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+/* Pulse animation for loading states */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 /* Custom scrollbar */
@@ -126,35 +285,211 @@ code, pre {
 }
 
 /* MUI Overrides */
+.MuiTypography-root {
+  color: rgba(30, 30, 50, 0.95) !important;
+}
+
+.MuiTypography-h1,
+.MuiTypography-h2,
+.MuiTypography-h3,
+.MuiTypography-h4,
+.MuiTypography-h5,
+.MuiTypography-h6 {
+  color: rgba(20, 20, 40, 1) !important;
+  font-weight: 600 !important;
+}
+
 .MuiButton-root {
   text-transform: none;
   font-weight: 500;
   border-radius: var(--radius-md);
   transition: all var(--transition-normal);
   box-shadow: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.MuiButton-root.MuiButton-contained {
+  color: white !important;
+}
+
+.MuiButton-root.MuiButton-outlined {
+  color: rgba(30, 30, 50, 0.9) !important;
+}
+
+.MuiButton-root.MuiButton-text {
+  color: rgba(30, 30, 50, 0.9) !important;
 }
 
 .MuiButton-contained {
-  box-shadow: var(--shadow-sm);
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: var(--text-color);
+  box-shadow: 0 4px 15px 0 rgba(31, 38, 135, 0.2);
 }
 
 .MuiButton-contained:hover {
-  box-shadow: var(--shadow-md);
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px 0 rgba(31, 38, 135, 0.3);
+}
+
+.MuiButton-outlined {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text-color);
+}
+
+.MuiButton-outlined:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
   transform: translateY(-1px);
 }
 
 .MuiPaper-root {
-  border-radius: var(--radius-md);
-  transition: all var(--transition-normal);
+  background: rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: var(--radius-lg) !important;
+  transition: all var(--transition-normal) !important;
+  box-shadow: 0 4px 24px 0 rgba(31, 38, 135, 0.2) !important;
+  color: rgba(30, 30, 50, 0.9) !important;
 }
 
 .MuiCard-root {
   overflow: visible;
   transition: all var(--transition-normal);
+  background: rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 
+    0 8px 32px 0 rgba(31, 38, 135, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  color: rgba(30, 30, 50, 0.9) !important;
 }
 
 .MuiCard-root:hover {
-  box-shadow: var(--shadow-md);
+  transform: translateY(-4px);
+  box-shadow: 
+    0 12px 40px 0 rgba(31, 38, 135, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.MuiAccordion-root {
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: var(--radius-lg) !important;
+  margin-bottom: var(--spacing-md) !important;
+  box-shadow: 0 4px 20px 0 rgba(31, 38, 135, 0.15) !important;
+}
+
+.MuiAccordion-root:before {
+  display: none;
+}
+
+.MuiAccordionSummary-root {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+  transition: all var(--transition-normal) !important;
+}
+
+.MuiAccordionSummary-root:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.MuiTextField-root .MuiOutlinedInput-root {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-normal);
+}
+
+.MuiTextField-root .MuiOutlinedInput-input {
+  color: rgba(30, 30, 50, 0.95) !important;
+}
+
+.MuiTextField-root .MuiInputLabel-root {
+  color: rgba(30, 30, 50, 0.8) !important;
+}
+
+.MuiTextField-root .MuiFormHelperText-root {
+  color: rgba(30, 30, 50, 0.7) !important;
+}
+
+.MuiTextField-root .MuiOutlinedInput-root:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.MuiTextField-root .MuiOutlinedInput-root.Mui-focused {
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+}
+
+.MuiOutlinedInput-notchedOutline {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.MuiSelect-root {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  border-radius: var(--radius-md);
+}
+
+.MuiSelect-select {
+  color: rgba(30, 30, 50, 0.95) !important;
+}
+
+.MuiMenuItem-root {
+  color: rgba(30, 30, 50, 0.9) !important;
+}
+
+.MuiChip-root {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all var(--transition-normal);
+}
+
+.MuiChip-root:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.MuiTabs-indicator {
+  height: 3px;
+  border-radius: 1.5px;
+  background: linear-gradient(90deg, 
+    rgba(99, 102, 241, 0.8) 0%, 
+    rgba(139, 92, 246, 0.8) 100%);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.MuiTab-root {
+  transition: all var(--transition-normal);
+  border-radius: var(--radius-md);
+  margin: 0 4px;
+}
+
+.MuiTab-root:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.MuiAlert-root {
+  background: rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: 0 4px 20px 0 rgba(31, 38, 135, 0.2) !important;
 }
 
 .MuiDrawer-paper {
