@@ -87,13 +87,7 @@ const ServerControls = memo(({
               background: 'rgba(255, 255, 255, 0.1)',
               backdropFilter: 'blur(8px)',
               border: '1px solid rgba(255, 255, 255, 0.2)',
-              color: 'rgba(255,255,255,0.8)',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                background: 'rgba(255, 255, 255, 0.2)',
-                transform: 'rotate(180deg)',
-                color: 'rgba(255,255,255,1)',
-              }
+              color: 'rgba(255,255,255,0.8)'
             }}
           >
             <RefreshIcon />
@@ -129,13 +123,6 @@ const ServerControls = memo(({
               boxShadow: status === 'running' 
                 ? '0 4px 15px rgba(16, 185, 129, 0.3)' 
                 : '0 4px 15px rgba(59, 130, 246, 0.3)',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: status === 'running' 
-                  ? '0 8px 25px rgba(16, 185, 129, 0.4)' 
-                  : '0 8px 25px rgba(59, 130, 246, 0.4)',
-              },
               '&:disabled': {
                 background: 'rgba(255, 255, 255, 0.1)',
                 color: 'rgba(255, 255, 255, 0.4)',
@@ -161,12 +148,6 @@ const ServerControls = memo(({
               border: '1px solid rgba(239, 68, 68, 0.3)',
               borderRadius: 2,
               backdropFilter: 'blur(8px)',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              '&:hover': {
-                background: 'rgba(239, 68, 68, 0.2)',
-                transform: 'translateY(-2px)',
-                boxShadow: '0 8px 25px rgba(239, 68, 68, 0.3)',
-              },
               '&:disabled': {
                 background: 'rgba(255, 255, 255, 0.05)',
                 color: 'rgba(255, 255, 255, 0.3)',
@@ -192,12 +173,6 @@ const ServerControls = memo(({
               border: '1px solid rgba(245, 158, 11, 0.3)',
               borderRadius: 2,
               backdropFilter: 'blur(8px)',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              '&:hover': {
-                background: 'rgba(245, 158, 11, 0.2)',
-                transform: 'translateY(-2px)',
-                boxShadow: '0 8px 25px rgba(245, 158, 11, 0.3)',
-              },
               '&:disabled': {
                 background: 'rgba(255, 255, 255, 0.05)',
                 color: 'rgba(255, 255, 255, 0.3)',
@@ -244,8 +219,8 @@ const ServerControls = memo(({
                           (status === 'error' ? '0 0 8px #ef444440' : 'none'),
               }} 
             />
-            <Typography component="span" sx={{ fontWeight: 600 }}>Status:</Typography> 
-            <Typography component="span">{message || status.toUpperCase()}</Typography>
+            <Typography component="span" sx={{ fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>Status:</Typography> 
+            <Typography component="span" sx={{ color: 'rgba(255,255,255,0.8)' }}>{message || status.toUpperCase()}</Typography>
           </Box>
           
           {metrics && status === 'running' && (
@@ -256,13 +231,13 @@ const ServerControls = memo(({
                 lineHeight: 1.4,
               }}
             >
-              <Typography component="span" sx={{ fontWeight: 600 }}>Uptime:</Typography> 
-              <Typography component="span"> {formatDuration(metrics.uptime_seconds)}</Typography>
+              <Typography component="span" sx={{ fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>Uptime:</Typography> 
+              <Typography component="span" sx={{ color: 'rgba(255,255,255,0.8)' }}> {formatDuration(metrics.uptime_seconds)}</Typography>
               <br />
-              <Typography component="span" sx={{ fontWeight: 600 }}>Requests:</Typography> 
-              <Typography component="span"> {metrics.request_count} | </Typography>
-              <Typography component="span" sx={{ fontWeight: 600 }}>Errors:</Typography> 
-              <Typography component="span"> {metrics.error_count}</Typography>
+              <Typography component="span" sx={{ fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>Requests:</Typography> 
+              <Typography component="span" sx={{ color: 'rgba(255,255,255,0.8)' }}> {metrics.request_count} | </Typography>
+              <Typography component="span" sx={{ fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>Errors:</Typography> 
+              <Typography component="span" sx={{ color: 'rgba(255,255,255,0.8)' }}> {metrics.error_count}</Typography>
             </Box>
           )}
           

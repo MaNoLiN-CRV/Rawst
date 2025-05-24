@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, SetStateAction } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -39,15 +39,338 @@ import ServerMetricsPanel from './api-tester/ServerMetricsPanel';
 import TabPanel from './common/TabPanel';
 import { EndpointConfig } from './api-tester/types';
 
+/**
+ * Interface for API request parameters
+ */
+interface ApiRequestParams {
+  url: string;
+  method: string;
+  body: string | null;
+  [key: string]: string | null | unknown; 
+}
+
+/**
+ * Type for HTTP methods that require a request body
+ */
+type HttpMethodWithBody = 'POST' | 'PUT';
+
+/**
+ * Props for the EntitySelector component
+ */
+interface EntitySelectorProps {
+  entities: Array<{ name: string }>;
+  selectedEntityName: string;
+  isLoadingConfig: boolean;
+  serverStatus: string;
+  onEntityChange: (event: SelectChangeEvent<string>) => void;
+}
+
+/**
+ * Entity selector component with proper accessibility
+ */
+const EntitySelector: React.FC<EntitySelectorProps> = React.memo(({
+  entities,
+  selectedEntityName,
+  isLoadingConfig,
+  serverStatus,
+  onEntityChange
+}) => (
+  <Card 
+    sx={{ 
+      mb: 4, 
+      p: 3,
+      backgroundColor: '#ffffff',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      borderRadius: 2,
+    }}
+    role="region"
+    aria-labelledby="entity-selector-title"
+  >
+    <FormControl 
+      fullWidth 
+      sx={{ 
+        '& .MuiOutlinedInput-root': {
+          backgroundColor: '#ffffff',
+          borderRadius: 2,
+        },
+        '& .MuiInputLabel-root': {
+          color: '#000000',
+          fontWeight: 500,
+        },
+      }}
+    >
+      <InputLabel id="entity-select-label">Select Entity</InputLabel>
+      <Select
+        labelId="entity-select-label"
+        id="entity-select"
+        value={selectedEntityName}
+        label="Select Entity"
+        onChange={onEntityChange}
+        disabled={isLoadingConfig || serverStatus !== 'running'}
+        aria-describedby={serverStatus !== 'running' ? "server-status-message" : undefined}
+        sx={{
+          color: '#000000',
+          '& .MuiSelect-icon': {
+            color: '#000000',
+          }
+        }}
+      >
+        {entities.map((entity) => (
+          <MenuItem 
+            key={entity.name} 
+            value={entity.name}
+            sx={{
+              backgroundColor: '#ffffff',
+              color: 'rgba(0, 0, 0, 0.87)',
+              '&.Mui-selected': {
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+              },
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              }
+            }}
+          >
+            {entity.name}
+          </MenuItem>
+        ))}
+      </Select>
+      {serverStatus !== 'running' && (
+        <Typography 
+          variant="caption" 
+          color="error" 
+          id="server-status-message" 
+          sx={{ 
+            mt: 1,
+            color: 'rgba(244, 67, 54, 0.8)',
+            fontWeight: 500,
+          }}
+          role="alert"
+        >
+          Server is not running. Please start the server to select an entity.
+        </Typography>
+      )}
+    </FormControl>
+  </Card>
+));
+
+EntitySelector.displayName = 'EntitySelector';
+
+/**
+ * Props for the RequestPanel component
+ */
+interface RequestPanelProps {
+  selectedEndpoint: EndpointConfig;
+  currentFullUrl: string;
+  requestBody: string;
+  isSendingRequest: boolean;
+  serverStatus: string;
+  onRequestBodyChange: (value: string) => void;
+  onSendRequest: () => void;
+  getMethodColor: (method: string) => string;
+}
+
+/**
+ * Request panel component for API testing
+ */
+const RequestPanel: React.FC<RequestPanelProps> = React.memo(({
+  selectedEndpoint,
+  currentFullUrl,
+  requestBody,
+  isSendingRequest,
+  serverStatus,
+  onRequestBodyChange,
+  onSendRequest,
+  getMethodColor
+}) => {
+  const theme = useTheme();
+  const needsRequestBody = selectedEndpoint.method === 'POST' || selectedEndpoint.method === 'PUT';
+
+  return (
+    <>
+      {/* URL Display */}
+      <Card 
+        sx={{ 
+          mb: 4, 
+          p: 3,
+          backgroundColor: '#f8f9fa',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+          borderRadius: 2,
+        }}
+      >
+        <Stack 
+          direction={{ xs: 'column', sm: 'row' }} 
+          spacing={2} 
+          alignItems={{ sm: "center" }}
+          sx={{ mb: 1 }}
+        >
+          <Chip
+            label={selectedEndpoint.method}
+            size="medium"
+            sx={{
+              background: `linear-gradient(135deg, ${getMethodColor(selectedEndpoint.method)}, ${getMethodColor(selectedEndpoint.method)}80)`,
+              color: theme.palette.getContrastText(getMethodColor(selectedEndpoint.method)),
+              fontWeight: 'bold',
+              fontSize: '0.875rem',
+              minWidth: 80,
+              height: 36,
+              mb: { xs: 1, sm: 0 },
+            }}
+          />
+          <Typography 
+            variant="body1" 
+            component="div" 
+            sx={{ 
+              fontFamily: 'monospace', 
+              fontSize: '1rem',
+              fontWeight: 500,
+              wordBreak: 'break-all', 
+              flexGrow: 1,
+              color: '#000000',
+              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              padding: '8px 12px',
+              borderRadius: 1,
+              border: '1px solid rgba(0, 0, 0, 0.1)',
+            }}
+          >
+            {currentFullUrl}
+          </Typography>
+        </Stack>
+      </Card>
+
+      {/* Request Body Section */}
+      {needsRequestBody && (
+        <Card 
+          sx={{ 
+            mb: 4, 
+            p: 3,
+            backgroundColor: '#f8f9fa',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+            borderRadius: 2,
+          }}
+        >
+          <Typography 
+            variant="h6" 
+            gutterBottom 
+            component="h5"
+            sx={{ 
+              fontWeight: 600,
+              color: '#000000',
+              mb: 2,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+            }}
+          >
+            <Box 
+              sx={{ 
+                width: 3, 
+                height: 20, 
+                backgroundColor: '#6366f1',
+                borderRadius: 1.5,
+              }} 
+            />
+            Request Body (JSON)
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={12}
+            variant="outlined"
+            value={requestBody}
+            onChange={(e) => onRequestBodyChange(e.target.value)}
+            InputProps={{
+              sx: { 
+                fontFamily: 'monospace', 
+                fontSize: '0.9rem',
+                backgroundColor: '#ffffff',
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(0, 0, 0, 0.2)',
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#6366f1',
+                  borderWidth: 2,
+                }
+              }
+            }}
+            sx={{
+              '& .MuiInputBase-input': {
+                color: '#000000',
+              }
+            }}
+            placeholder="Enter JSON request body here..."
+            aria-label="Request body input"
+          />
+        </Card>
+      )}
+
+      {/* Send Button Section */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
+        <Button
+          variant="contained"
+          onClick={onSendRequest}
+          disabled={isSendingRequest || serverStatus !== 'running'}
+          startIcon={isSendingRequest ? <CircularProgress size={20} color="inherit" /> : null}
+          sx={{
+            minWidth: 180,
+            height: 48,
+            fontSize: '1rem',
+            fontWeight: 600,
+            backgroundColor: getMethodColor(selectedEndpoint.method),
+            color: theme.palette.getContrastText(getMethodColor(selectedEndpoint.method)),
+            borderRadius: 2,
+            '&:hover': {
+              backgroundColor: getMethodColor(selectedEndpoint.method),
+              opacity: 0.9,
+            },
+            '&:disabled': {
+              backgroundColor: 'rgba(0, 0, 0, 0.12)',
+              color: 'rgba(0, 0, 0, 0.26)',
+            }
+          }}
+          aria-label={`Send ${selectedEndpoint.method} request`}
+        >
+          {isSendingRequest ? 'Sending...' : 'Send Request'}
+        </Button>
+      </Box>
+
+      {/* Server Status Warning */}
+      {serverStatus !== 'running' && (
+        <Alert 
+          severity="warning" 
+          sx={{ 
+            mt: 3,
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            borderRadius: 2,
+            color: '#000000',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            '& .MuiAlert-icon': {
+              color: '#f59e0b',
+            }
+          }}
+        >
+          The API server is not running. Please start the server to send requests.
+        </Alert>
+      )}
+    </>
+  );
+});
+
+RequestPanel.displayName = 'RequestPanel';
+
+/**
+ * Main ApiTester component
+ */
 const ApiTester: React.FC = () => {
   const theme = useTheme();
   
+  // Local state
   const [requestBody, setRequestBody] = useState<string>('');
   const [response, setResponse] = useState<string>('');
   const [isSendingRequest, setIsSendingRequest] = useState<boolean>(false);
   const [tabValue, setTabValue] = useState<number>(0);
   const [monitoringTabValue, setMonitoringTabValue] = useState<number>(0);
   
+  // Custom hooks
   const {
     serverStatus,
     serverMessage,
@@ -81,20 +404,11 @@ const ApiTester: React.FC = () => {
     setError: setApiConfigError
   } = useApiConfiguration(serverStatus);
 
-  // Debug logging
-  useEffect(() => {
-    console.log('ApiTester render state:', {
-      isLoadingConfig,
-      serverStatus,
-      entitiesCount: entities.length,
-      apiConfigError,
-      selectedEntityName
-    });
-  }, [isLoadingConfig, serverStatus, entities.length, apiConfigError, selectedEntityName]);
-
+  // Effects
   useEffect(() => {
     if (selectedEndpoint) {
-      if (selectedEndpoint.method === 'POST' || selectedEndpoint.method === 'PUT') {
+      const methodsWithBody: HttpMethodWithBody[] = ['POST', 'PUT'];
+      if (methodsWithBody.includes(selectedEndpoint.method as HttpMethodWithBody)) {
         const currentEntity = entities.find(e => e.name === selectedEntityName);
         setRequestBody(generateSampleBody(currentEntity));
       } else {
@@ -105,17 +419,24 @@ const ApiTester: React.FC = () => {
     }
   }, [selectedEndpoint, selectedEntityName, entities, generateSampleBody]);
 
+  // Memoized values
   const getMethodColor = useCallback((method: string): string => {
-    switch (method.toUpperCase()) {
-      case 'GET': return theme.palette.info.main;
-      case 'POST': return theme.palette.success.main;
-      case 'PUT': return theme.palette.warning.main;
-      case 'DELETE': return theme.palette.error.main;
-      case 'PATCH': return theme.palette.secondary.main;
-      default: return theme.palette.grey[700];
-    }
+    const colorMap: Record<string, string> = {
+      'GET': theme.palette.info.main,
+      'POST': theme.palette.success.main,
+      'PUT': theme.palette.warning.main,
+      'DELETE': theme.palette.error.main,
+      'PATCH': theme.palette.secondary.main,
+    };
+    return colorMap[method.toUpperCase()] || theme.palette.grey[700];
   }, [theme]);
 
+  const currentFullUrl = useMemo(() => {
+    if (!selectedEndpoint) return apiUrl;
+    return `${apiUrl}${selectedEndpoint.path}`;
+  }, [apiUrl, selectedEndpoint]);
+
+  // Event handlers
   const handleEntityChange = useCallback((event: SelectChangeEvent<string>): void => {
     const entityName = event.target.value;
     setSelectedEntityName(entityName);
@@ -137,7 +458,7 @@ const ApiTester: React.FC = () => {
   }, [entities, createEndpointsForEntity, setSelectedEntityName, setEndpoints, setSelectedEndpoint]);
 
   const handleEndpointChange = useCallback((endpoint: EndpointConfig): void => {
-    setSelectedEndpoint(endpoint as SetStateAction<EndpointConfig | null>);
+    setSelectedEndpoint(endpoint);
     setResponse(''); 
     setTabValue(0); 
   }, [setSelectedEndpoint]);
@@ -152,6 +473,9 @@ const ApiTester: React.FC = () => {
     else if (newValue === 1) fetchServerLogs();
   }, [fetchServerMetrics, fetchServerLogs]);
 
+  /**
+   * Makes an API request with proper error handling
+   */
   const makeApiRequest = useCallback(async (): Promise<void> => {
     if (!selectedEndpoint) {
       setApiConfigError("No endpoint selected.");
@@ -164,23 +488,26 @@ const ApiTester: React.FC = () => {
 
     try {
       let urlPath = selectedEndpoint.path;
+      
+      // Handle path parameters
       if (urlPath.includes('{id}')) {
         const idValue = prompt('Enter ID value for path parameter {id}:', '1');
         if (idValue !== null && idValue.trim() !== '') {
           urlPath = urlPath.replace('{id}', encodeURIComponent(idValue));
         } else {
           setApiConfigError('ID value is required for this endpoint and was not provided.');
-          setIsSendingRequest(false);
           return;
         }
       }
-      const fullUrl = `${apiUrl}${urlPath}`;
 
-      const result = await invoke<string>('test_api_endpoint', { 
+      const fullUrl = `${apiUrl}${urlPath}`;
+      const requestParams: ApiRequestParams = {
         url: fullUrl,
         method: selectedEndpoint.method,
-        body: (selectedEndpoint.method === 'POST' || selectedEndpoint.method === 'PUT') ? requestBody : null
-      });
+        body: (['POST', 'PUT'].includes(selectedEndpoint.method)) ? requestBody : null
+      };
+
+      const result = await invoke<string>('test_api_endpoint', requestParams);
       
       try {
         const parsedResult = JSON.parse(result);
@@ -188,8 +515,10 @@ const ApiTester: React.FC = () => {
       } catch (parseError) {
         setResponse(result);
       }
+      
       setTabValue(1); 
-      // Only fetch server metrics if the monitoring metrics tab is currently active
+      
+      // Refresh metrics if monitoring tab is active
       if (monitoringTabValue === 0) {
         fetchServerMetrics();
       }
@@ -204,6 +533,9 @@ const ApiTester: React.FC = () => {
     }
   }, [selectedEndpoint, apiUrl, requestBody, fetchServerMetrics, setApiConfigError, monitoringTabValue]);
 
+  /**
+   * Tests database connection with error handling
+   */
   const testDatabaseConnection = useCallback(async (): Promise<void> => {
     try {
       setApiConfigError(null);
@@ -216,54 +548,24 @@ const ApiTester: React.FC = () => {
     }
   }, [setApiConfigError]);
 
-
-  const currentFullUrl = useMemo(() => {
-    if (!selectedEndpoint) return apiUrl;
-    return `${apiUrl}${selectedEndpoint.path}`;
-  }, [apiUrl, selectedEndpoint]);
-
   return (
     <Box sx={{ 
       minHeight: '100vh',
-      position: 'relative',
-      '&::before': {
-        content: '""',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(255, 255, 255, 0.02)',
-        backdropFilter: 'blur(1px)',
-        pointerEvents: 'none',
-        zIndex: 0,
-      }
+      backgroundColor: '#f5f5f5',
     }}>
       <Box sx={{ 
         py: { xs: 2, sm: 4 }, 
         px: { xs: 1, sm: 3 },
-        position: 'relative',
-        zIndex: 1,
       }}>
         {/* Hero Section */}
-        <Box 
-          className="floating-card"
+        <Card 
           sx={{ 
             mb: 4, 
             p: 4,
             textAlign: 'center',
-            position: 'relative',
-            overflow: 'hidden',
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: '-100%',
-              width: '100%',
-              height: '100%',
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)',
-              animation: 'shimmer 3s infinite',
-            }
+            backgroundColor: '#ffffff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            borderRadius: 2,
           }}
         >
           <Typography 
@@ -272,22 +574,18 @@ const ApiTester: React.FC = () => {
             gutterBottom
             sx={{ 
               fontWeight: 700,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+              color: '#000000',
               mb: 2,
-              textShadow: '0 2px 4px rgba(0,0,0,0.1)',
             }}
           >
             API Tester
           </Typography>
           <Typography 
             variant="h6" 
-            color="text.secondary"
             sx={{ 
               fontWeight: 400,
-              opacity: 0.9,
+              color: '#000000',
+              opacity: 0.8,
               maxWidth: 600,
               margin: '0 auto',
             }}
@@ -295,28 +593,18 @@ const ApiTester: React.FC = () => {
             Test your dynamically generated API endpoints with our modern, intuitive interface. 
             Ensure your backend server is configured and running for optimal performance.
           </Typography>
-        </Box>
+        </Card>
 
-        <Divider 
-          sx={{ 
-            mb: 4,
-            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
-            height: 2,
-            border: 'none',
-          }} 
-        />
+        <Divider sx={{ mb: 4 }} />
 
-        {/* Server Controls - Enhanced */}
-        <Box 
-          className="glass-effect"
+        {/* Server Controls */}
+        <Card 
           sx={{ 
             mb: 4, 
             p: 3,
-            borderRadius: 3,
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            '&:hover': {
-              transform: 'translateY(-2px)',
-            }
+            backgroundColor: '#ffffff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            borderRadius: 2,
           }}
         >
           <ServerControls
@@ -328,16 +616,17 @@ const ApiTester: React.FC = () => {
             onRefresh={checkServerStatus}
             message={serverMessage}
           />
-        </Box>
+        </Card>
 
-        {/* Database Test Section - For Debugging */}
+        {/* Database Test Section */}
         {serverStatus === 'error' && (
-          <Box 
-            className="glass-effect"
+          <Card 
             sx={{ 
               mb: 4, 
               p: 3,
-              borderRadius: 3,
+              backgroundColor: '#ffffff',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              borderRadius: 2,
             }}
           >
             <Typography 
@@ -345,7 +634,7 @@ const ApiTester: React.FC = () => {
               component="h2"
               sx={{ 
                 fontWeight: 600,
-                color: 'rgba(255,255,255,0.9)',
+                color: '#000000',
                 mb: 2,
                 display: 'flex',
                 alignItems: 'center',
@@ -356,13 +645,13 @@ const ApiTester: React.FC = () => {
                 sx={{ 
                   width: 3, 
                   height: 20, 
-                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  backgroundColor: '#6366f1',
                   borderRadius: 1.5,
                 }} 
               />
               Database Connection Test
             </Typography>
-            <Typography variant="body2" sx={{ mb: 2, color: 'rgba(255,255,255,0.7)' }}>
+            <Typography variant="body2" sx={{ mb: 2, color: '#000000' }}>
               Test the database connection to troubleshoot server startup issues.
             </Typography>
             <Button
@@ -371,47 +660,32 @@ const ApiTester: React.FC = () => {
               sx={{
                 borderColor: 'rgba(99, 102, 241, 0.6)',
                 color: 'rgba(99, 102, 241, 0.9)',
-                '&:hover': {
-                  borderColor: 'rgba(99, 102, 241, 0.8)',
-                  background: 'rgba(99, 102, 241, 0.1)',
-                }
               }}
             >
               Test Database Connection
             </Button>
-          </Box>
+          </Card>
         )}
 
-        {/* Server Monitoring Accordion - Enhanced */}
+        {/* Server Monitoring Accordion */}
         <Accordion 
           defaultExpanded={false} 
           sx={{ 
             mb: 4,
-            background: 'rgba(255, 255, 255, 0.08) !important',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            borderRadius: '16px !important',
-            overflow: 'hidden',
-            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.2)',
+            backgroundColor: '#ffffff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            borderRadius: 2,
             '&:before': { display: 'none' },
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            '&:hover': {
-              transform: 'translateY(-2px)',
-              boxShadow: '0 12px 40px 0 rgba(31, 38, 135, 0.3)',
-            }
           }}
         >
           <AccordionSummary
-            expandIcon={<ExpandMoreIcon sx={{ color: 'rgba(255,255,255,0.7)' }} />}
+            expandIcon={<ExpandMoreIcon sx={{ color: 'rgba(0, 0, 0, 0.7)' }} />}
             aria-controls="server-monitoring-content"
             id="server-monitoring-header"
             sx={{ 
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '16px 16px 0 0',
+              backgroundColor: '#f9f9f9',
+              borderRadius: 2,
               minHeight: 64,
-              '&:hover': {
-                background: 'rgba(255, 255, 255, 0.1)',
-              },
               '& .MuiAccordionSummary-content': {
                 alignItems: 'center',
               }
@@ -422,7 +696,7 @@ const ApiTester: React.FC = () => {
                 variant="h6" 
                 sx={{ 
                   fontWeight: 600,
-                  color: 'rgba(255,255,255,0.9)',
+                  color: '#000000',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
@@ -448,7 +722,7 @@ const ApiTester: React.FC = () => {
               )}
             </Box>
           </AccordionSummary>
-          <AccordionDetails sx={{ p: 3, background: 'rgba(255, 255, 255, 0.02)' }}>
+          <AccordionDetails sx={{ p: 3, backgroundColor: '#ffffff' }}>
             <Box sx={{ borderBottom: 1, borderColor: 'rgba(255,255,255,0.1)', mb: 3 }}>
               <Tabs
                 value={monitoringTabValue}
@@ -456,24 +730,18 @@ const ApiTester: React.FC = () => {
                 aria-label="Server monitoring tabs"
                 indicatorColor="primary"
                 textColor="primary"
-                sx={{
-                  '& .MuiTab-root': {
-                    color: 'rgba(255,255,255,0.7)',
-                    fontWeight: 500,
-                    borderRadius: 2,
-                    mx: 0.5,
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      color: 'rgba(255,255,255,0.9)',
-                      background: 'rgba(255,255,255,0.08)',
-                    },
-                    '&.Mui-selected': {
+                sx={{                            '& .MuiTab-root': {
+                              color: '#000000',
+                              fontWeight: 500,
+                              borderRadius: 2,
+                              mx: 0.5,
+                              '&.Mui-selected': {
                       color: 'rgba(99, 102, 241, 0.9)',
                       background: 'rgba(99, 102, 241, 0.1)',
                     }
                   },
                   '& .MuiTabs-indicator': {
-                    background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.8), rgba(139, 92, 246, 0.8))',
+                    background: 'rgba(99, 102, 241, 0.8)',
                     height: 3,
                     borderRadius: 1.5,
                   }
@@ -510,10 +778,9 @@ const ApiTester: React.FC = () => {
           </AccordionDetails>
         </Accordion>
 
-        {/* Loading State & Server Status - Enhanced */}
+        {/* Loading States */}
         {(isLoadingConfig || serverStatus === 'starting' || serverStatus === 'restarting') && (
-          <Box 
-            className="glass-effect"
+          <Card 
             sx={{ 
               display: 'flex', 
               justifyContent: 'center', 
@@ -522,6 +789,9 @@ const ApiTester: React.FC = () => {
               p: 4,
               flexDirection: 'column',
               gap: 2,
+              backgroundColor: '#ffffff',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              borderRadius: 2,
             }}
           >
             <CircularProgress 
@@ -536,7 +806,7 @@ const ApiTester: React.FC = () => {
             <Typography 
               variant="body1" 
               sx={{ 
-                color: 'rgba(30, 30, 50, 0.8)',
+                color: '#000000',
                 fontWeight: 500,
                 textAlign: 'center',
               }}
@@ -545,23 +815,25 @@ const ApiTester: React.FC = () => {
                serverStatus === 'starting' ? 'Starting API server...' :
                'Restarting API server...'}
             </Typography>
-            {isLoadingConfig && (
-              <Button 
-                variant="outlined" 
-                onClick={manualRefreshConfig}
-                size="small"
-                sx={{ mt: 2 }}
-              >
-                Force Refresh Configuration
-              </Button>
+            {isLoadingConfig && (            <Button 
+              variant="outlined" 
+              onClick={manualRefreshConfig}
+              size="small"
+              sx={{ 
+                mt: 2,
+                borderColor: 'rgba(99, 102, 241, 0.6)',
+                color: 'rgba(99, 102, 241, 0.9)',
+              }}
+            >
+              Force Refresh Configuration
+            </Button>
             )}
-          </Box>
+          </Card>
         )}
 
         {/* Server Not Running State */}
         {!isLoadingConfig && serverStatus === 'stopped' && (
-          <Box 
-            className="floating-card"
+          <Card 
             sx={{ 
               display: 'flex', 
               justifyContent: 'center', 
@@ -571,13 +843,16 @@ const ApiTester: React.FC = () => {
               flexDirection: 'column',
               gap: 3,
               textAlign: 'center',
+              backgroundColor: '#ffffff',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              borderRadius: 2,
             }}
           >
             <WarningIcon sx={{ fontSize: 48, color: '#f59e0b', opacity: 0.8 }} />
             <Typography 
               variant="h5" 
               sx={{ 
-                color: 'rgba(30, 30, 50, 0.9)',
+                color: '#000000',
                 fontWeight: 600,
               }}
             >
@@ -586,14 +861,15 @@ const ApiTester: React.FC = () => {
             <Typography 
               variant="body1" 
               sx={{ 
-                color: 'rgba(30, 30, 50, 0.7)',
+                color: '#000000',
+                opacity: 0.8,
                 maxWidth: 500,
                 lineHeight: 1.6,
               }}
             >
               The API server needs to be running to test endpoints. Please start the server using the controls above.
             </Typography>
-          </Box>
+          </Card>
         )}
 
         {/* Server Error State */}
@@ -602,38 +878,36 @@ const ApiTester: React.FC = () => {
             severity="error" 
             sx={{ 
               mb: 3,
-              background: 'rgba(244, 67, 54, 0.1)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(244, 67, 54, 0.2)',
+              backgroundColor: 'rgba(244, 67, 54, 0.1)',
               borderRadius: 2,
-              color: 'rgba(30, 30, 50, 0.9)',
+              color: '#000000',
+              border: '1px solid rgba(244, 67, 54, 0.3)',
               '& .MuiAlert-icon': {
                 color: '#ef4444',
               }
             }}
           >
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            <Typography variant="body2" sx={{ fontWeight: 500, color: '#000000' }}>
               Server Error: {serverMessage || 'Failed to start API server'}
             </Typography>
-            <Typography variant="caption" sx={{ mt: 1, display: 'block', opacity: 0.8 }}>
+            <Typography variant="caption" sx={{ mt: 1, display: 'block', opacity: 0.8, color: '#000000' }}>
               Please check your database configuration and ensure the database server is running.
             </Typography>
           </Alert>
         )}
 
-        {/* Error Alert - Enhanced */}
+        {/* Error and Info Alerts */}
         {apiConfigError && !isLoadingConfig && (
           <Alert 
             severity="error" 
             sx={{ 
               mb: 4,
-              background: 'rgba(255, 107, 107, 0.15) !important',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255, 107, 107, 0.3)',
+              backgroundColor: 'rgba(244, 67, 54, 0.1)',
               borderRadius: 2,
-              color: 'rgba(255,255,255,0.9)',
+              color: '#000000',
+              border: '1px solid rgba(244, 67, 54, 0.3)',
               '& .MuiAlert-icon': {
-                color: '#ff6b6b',
+                color: '#ef4444',
               }
             }} 
             onClose={() => setApiConfigError(null)}
@@ -642,125 +916,28 @@ const ApiTester: React.FC = () => {
           </Alert>
         )}
 
-        {/* No Entities Alert - Enhanced */}
-        {!isLoadingConfig && entities.length === 0 && !apiConfigError && (
-          <Alert 
-            severity="info" 
-            sx={{ 
-              mb: 4,
-              background: 'rgba(59, 130, 246, 0.15) !important',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
-              borderRadius: 2,
-              color: 'rgba(255,255,255,0.9)',
-              '& .MuiAlert-icon': {
-                color: '#3b82f6',
-              }
-            }}
-          >
-            No API entities found or configuration is empty. Please generate/check your API configuration.
-          </Alert>
-        )}
-
-        {/* Main Content Container - Enhanced */}
+        {/* Main Content Container */}
         {!isLoadingConfig && entities.length > 0 && (
           <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto' }}>
-            {/* Entity Selector - Enhanced */}
-            <Box 
-              className="floating-card"
-              sx={{ 
-                mb: 4, 
-                p: 3,
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              }}
-            >
-              <FormControl 
-                fullWidth 
-                sx={{ 
-                  '& .MuiOutlinedInput-root': {
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    backdropFilter: 'blur(10px)',
-                    borderRadius: 2,
-                    '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.12)',
-                    },
-                    '&.Mui-focused': {
-                      background: 'rgba(255, 255, 255, 0.15)',
-                      boxShadow: '0 0 0 2px rgba(99, 102, 241, 0.3)',
-                    }
-                  },
-                  '& .MuiInputLabel-root': {
-                    color: 'rgba(255,255,255,0.7)',
-                    fontWeight: 500,
-                    '&.Mui-focused': {
-                      color: 'rgba(99, 102, 241, 0.9)',
-                    }
-                  },
-                }}
-              >
-                <InputLabel id="entity-select-label">Select Entity</InputLabel>
-                <Select
-                  labelId="entity-select-label"
-                  id="entity-select"
-                  value={selectedEntityName}
-                  label="Select Entity"
-                  onChange={handleEntityChange}
-                  disabled={isLoadingConfig || serverStatus !== 'running'}
-                  aria-describedby={serverStatus !== 'running' ? "server-status-message" : undefined}
-                  sx={{
-                    color: 'rgba(255,255,255,0.9)',
-                    '& .MuiSelect-icon': {
-                      color: 'rgba(255,255,255,0.7)',
-                    }
-                  }}
-                >
-                  {entities.map((entity) => (
-                    <MenuItem 
-                      key={entity.name} 
-                      value={entity.name}
-                      sx={{
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        '&:hover': {
-                          background: 'rgba(99, 102, 241, 0.1)',
-                        },
-                        '&.Mui-selected': {
-                          background: 'rgba(99, 102, 241, 0.2)',
-                          '&:hover': {
-                            background: 'rgba(99, 102, 241, 0.3)',
-                          }
-                        }
-                      }}
-                    >
-                      {entity.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {serverStatus !== 'running' && (
-                  <Typography 
-                    variant="caption" 
-                    color="error" 
-                    id="server-status-message" 
-                    sx={{ 
-                      mt: 1,
-                      color: '#ff6b6b',
-                      fontWeight: 500,
-                    }}
-                  >
-                    Server is not running. Please start the server to select an entity.
-                  </Typography>
-                )}
-              </FormControl>
-            </Box>
+            {/* Entity Selector */}
+            <EntitySelector
+              entities={entities}
+              selectedEntityName={selectedEntityName}
+              isLoadingConfig={isLoadingConfig}
+              serverStatus={serverStatus}
+              onEntityChange={handleEntityChange}
+            />
 
-            {/* Endpoints Section - Enhanced */}
+            {/* Endpoints Section */}
             {selectedEntityName && endpoints.length > 0 && (
               <>
-                <Box 
-                  className="floating-card"
+                <Card 
                   sx={{ 
                     mb: 4, 
                     p: 3,
-                    borderRadius: 3,
+                    backgroundColor: '#ffffff',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    borderRadius: 2,
                   }}
                 >
                   <Typography 
@@ -769,7 +946,7 @@ const ApiTester: React.FC = () => {
                     component="h3"
                     sx={{ 
                       fontWeight: 600,
-                      color: 'rgba(255,255,255,0.9)',
+                      color: '#000000',
                       mb: 3,
                       display: 'flex',
                       alignItems: 'center',
@@ -780,7 +957,7 @@ const ApiTester: React.FC = () => {
                       sx={{ 
                         width: 4, 
                         height: 24, 
-                        background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                        backgroundColor: '#6366f1',
                         borderRadius: 2,
                       }} 
                     />
@@ -792,25 +969,18 @@ const ApiTester: React.FC = () => {
                     onEndpointSelect={handleEndpointChange}
                     getMethodColor={getMethodColor}
                   />
-                </Box>
+                </Card>
 
-                {/* API Testing Interface - Enhanced */}
+                {/* API Testing Interface */}
                 {selectedEndpoint && (
                   <Card 
                     variant="outlined" 
                     sx={{ 
                       mb: 4,
-                      background: 'rgba(255, 255, 255, 0.08) !important',
-                      backdropFilter: 'blur(20px)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      borderRadius: 4,
+                      backgroundColor: '#ffffff',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                      borderRadius: 2,
                       overflow: 'hidden',
-                      boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.2)',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      '&:hover': {
-                        transform: 'translateY(-4px)',
-                        boxShadow: '0 12px 40px 0 rgba(31, 38, 135, 0.3)',
-                      }
                     }}
                   >
                     <CardContent sx={{ p: 4 }}>
@@ -820,7 +990,7 @@ const ApiTester: React.FC = () => {
                         gutterBottom 
                         sx={{ 
                           fontWeight: 600,
-                          color: 'rgba(255,255,255,0.9)',
+                          color: '#000000',
                           mb: 3,
                           display: 'flex',
                           alignItems: 'center',
@@ -832,15 +1002,14 @@ const ApiTester: React.FC = () => {
                             width: 8, 
                             height: 8, 
                             borderRadius: '50%',
-                            background: `linear-gradient(135deg, ${getMethodColor(selectedEndpoint.method)}, ${getMethodColor(selectedEndpoint.method)}80)`,
-                            boxShadow: `0 0 8px ${getMethodColor(selectedEndpoint.method)}40`,
+                            backgroundColor: getMethodColor(selectedEndpoint.method),
                           }} 
                         />
                         Testing: {selectedEndpoint.description}
                       </Typography>
                       
-                      {/* Tabs Section - Enhanced */}
-                      <Box sx={{ borderBottom: 1, borderColor: 'rgba(255,255,255,0.1)', mb: 3 }}>
+                      {/* Tabs Section */}
+                      <Box sx={{ borderBottom: 1, borderColor: 'rgba(0, 0, 0, 0.1)', mb: 3 }}>
                         <Tabs
                           value={tabValue}
                           onChange={handleTabChange}
@@ -849,25 +1018,20 @@ const ApiTester: React.FC = () => {
                           textColor="primary"
                           sx={{
                             '& .MuiTab-root': {
-                              color: 'rgba(255,255,255,0.7)',
+                              color: '#000000',
                               fontWeight: 600,
                               fontSize: '1rem',
                               textTransform: 'none',
                               borderRadius: 2,
                               mx: 1,
                               minHeight: 48,
-                              transition: 'all 0.3s ease',
-                              '&:hover': {
-                                color: 'rgba(255,255,255,0.9)',
-                                background: 'rgba(255,255,255,0.08)',
-                              },
                               '&.Mui-selected': {
-                                color: 'rgba(99, 102, 241, 0.9)',
-                                background: 'rgba(99, 102, 241, 0.1)',
+                                color: '#6366f1',
+                                backgroundColor: 'rgba(99, 102, 241, 0.1)',
                               }
                             },
                             '& .MuiTabs-indicator': {
-                              background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.8), rgba(139, 92, 246, 0.8))',
+                              backgroundColor: '#6366f1',
                               height: 3,
                               borderRadius: 1.5,
                             }
@@ -887,196 +1051,27 @@ const ApiTester: React.FC = () => {
                         </Tabs>
                       </Box>
 
-                      {/* Request Tab - Enhanced */}
+                      {/* Request Tab */}
                       <TabPanel value={tabValue} index={0}>
-                        {/* URL Display - Enhanced */}
-                        <Box 
-                          className="glass-effect"
-                          sx={{ 
-                            mb: 4, 
-                            p: 3,
-                            borderRadius: 2,
-                          }}
-                        >
-                          <Stack 
-                            direction={{ xs: 'column', sm: 'row' }} 
-                            spacing={2} 
-                            alignItems={{ sm: "center" }}
-                            sx={{ mb: 1 }}
-                          >
-                            <Chip
-                              label={selectedEndpoint.method}
-                              size="medium"
-                              sx={{
-                                background: `linear-gradient(135deg, ${getMethodColor(selectedEndpoint.method)}, ${getMethodColor(selectedEndpoint.method)}80)`,
-                                color: theme.palette.getContrastText(getMethodColor(selectedEndpoint.method)),
-                                fontWeight: 'bold',
-                                fontSize: '0.875rem',
-                                minWidth: 80,
-                                height: 36,
-                                boxShadow: `0 4px 12px ${getMethodColor(selectedEndpoint.method)}30`,
-                                border: `1px solid ${getMethodColor(selectedEndpoint.method)}40`,
-                                mb: { xs: 1, sm: 0 },
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                  transform: 'translateY(-1px)',
-                                  boxShadow: `0 6px 16px ${getMethodColor(selectedEndpoint.method)}40`,
-                                }
-                              }}
-                            />
-                            <Typography 
-                              variant="body1" 
-                              component="div" 
-                              sx={{ 
-                                fontFamily: 'monospace', 
-                                fontSize: '1rem',
-                                fontWeight: 500,
-                                wordBreak: 'break-all', 
-                                flexGrow: 1,
-                                color: 'rgba(255,255,255,0.9)',
-                                background: 'rgba(255, 255, 255, 0.05)',
-                                padding: '8px 12px',
-                                borderRadius: 1,
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                              }}
-                            >
-                              {currentFullUrl}
-                            </Typography>
-                          </Stack>
-                        </Box>
-
-                        {/* Request Body Section - Enhanced */}
-                        {(selectedEndpoint.method === 'POST' || selectedEndpoint.method === 'PUT') && (
-                          <Box 
-                            className="glass-effect"
-                            sx={{ 
-                              mb: 4, 
-                              p: 3,
-                              borderRadius: 2,
-                            }}
-                          >
-                            <Typography 
-                              variant="h6" 
-                              gutterBottom 
-                              component="h5"
-                              sx={{ 
-                                fontWeight: 600,
-                                color: 'rgba(255,255,255,0.9)',
-                                mb: 2,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1,
-                              }}
-                            >
-                              <Box 
-                                sx={{ 
-                                  width: 3, 
-                                  height: 20, 
-                                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                                  borderRadius: 1.5,
-                                }} 
-                              />
-                              Request Body (JSON)
-                            </Typography>
-                            <TextField
-                              fullWidth
-                              multiline
-                              rows={12}
-                              variant="outlined"
-                              value={requestBody}
-                              onChange={(e) => setRequestBody(e.target.value)}
-                              InputProps={{
-                                sx: { 
-                                  fontFamily: 'monospace', 
-                                  fontSize: '0.9rem',
-                                  background: 'rgba(0, 0, 0, 0.2)',
-                                  '& .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                                  },
-                                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                                  },
-                                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: 'rgba(99, 102, 241, 0.6)',
-                                    borderWidth: 2,
-                                  }
-                                }
-                              }}
-                              sx={{
-                                '& .MuiInputBase-input': {
-                                  color: 'rgba(255,255,255,0.9)',
-                                }
-                              }}
-                              placeholder="Enter JSON request body here..."
-                              aria-label="Request body input"
-                            />
-                          </Box>
-                        )}
-
-                        {/* Send Button Section - Enhanced */}
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
-                          <Button
-                            variant="contained"
-                            onClick={makeApiRequest}
-                            disabled={isSendingRequest || serverStatus !== 'running'}
-                            startIcon={isSendingRequest ? <CircularProgress size={20} color="inherit" /> : null}
-                            sx={{
-                              minWidth: 180,
-                              height: 48,
-                              fontSize: '1rem',
-                              fontWeight: 600,
-                              background: `linear-gradient(135deg, ${getMethodColor(selectedEndpoint.method)}, ${getMethodColor(selectedEndpoint.method)}80)`,
-                              color: theme.palette.getContrastText(getMethodColor(selectedEndpoint.method)),
-                              border: `1px solid ${getMethodColor(selectedEndpoint.method)}40`,
-                              borderRadius: 3,
-                              boxShadow: `0 4px 15px ${getMethodColor(selectedEndpoint.method)}30`,
-                              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                              '&:hover': {
-                                background: `linear-gradient(135deg, ${getMethodColor(selectedEndpoint.method)}dd, ${getMethodColor(selectedEndpoint.method)}99)`,
-                                transform: 'translateY(-2px)',
-                                boxShadow: `0 8px 25px ${getMethodColor(selectedEndpoint.method)}40`,
-                              },
-                              '&:active': {
-                                transform: 'translateY(0px)',
-                              },
-                              '&:disabled': {
-                                background: 'rgba(255, 255, 255, 0.1)',
-                                color: 'rgba(255, 255, 255, 0.4)',
-                                boxShadow: 'none',
-                              }
-                            }}
-                            aria-label={`Send ${selectedEndpoint.method} request`}
-                          >
-                            {isSendingRequest ? 'Sending...' : 'Send Request'}
-                          </Button>
-                        </Box>
-
-                        {/* Server Status Warning - Enhanced */}
-                        {serverStatus !== 'running' && (
-                          <Alert 
-                            severity="warning" 
-                            sx={{ 
-                              mt: 3,
-                              background: 'rgba(245, 158, 11, 0.15) !important',
-                              backdropFilter: 'blur(12px)',
-                              border: '1px solid rgba(245, 158, 11, 0.3)',
-                              borderRadius: 2,
-                              color: 'rgba(255,255,255,0.9)',
-                              '& .MuiAlert-icon': {
-                                color: '#f59e0b',
-                              }
-                            }}
-                          >
-                            The API server is not running. Please start the server to send requests.
-                          </Alert>
-                        )}
+                        <RequestPanel
+                          selectedEndpoint={selectedEndpoint}
+                          currentFullUrl={currentFullUrl}
+                          requestBody={requestBody}
+                          isSendingRequest={isSendingRequest}
+                          serverStatus={serverStatus}
+                          onRequestBodyChange={setRequestBody}
+                          onSendRequest={makeApiRequest}
+                          getMethodColor={getMethodColor}
+                        />
                       </TabPanel>
-                      {/* Response Tab - Enhanced */}
+
+                      {/* Response Tab */}
                       <TabPanel value={tabValue} index={1}>
-                        <Box 
-                          className="glass-effect"
+                        <Card 
                           sx={{ 
                             p: 3,
+                            backgroundColor: '#f8f9fa',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
                             borderRadius: 2,
                             minHeight: 200,
                           }}
@@ -1087,7 +1082,7 @@ const ApiTester: React.FC = () => {
                             component="h5"
                             sx={{ 
                               fontWeight: 600,
-                              color: 'rgba(255,255,255,0.9)',
+                              color: '#000000',
                               mb: 3,
                               display: 'flex',
                               alignItems: 'center',
@@ -1098,7 +1093,7 @@ const ApiTester: React.FC = () => {
                               sx={{ 
                                 width: 3, 
                                 height: 20, 
-                                background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                                backgroundColor: '#6366f1',
                                 borderRadius: 1.5,
                               }} 
                             />
@@ -1120,7 +1115,7 @@ const ApiTester: React.FC = () => {
                               <CircularProgress 
                                 size={32} 
                                 sx={{ 
-                                  color: 'rgba(99, 102, 241, 0.8)',
+                                  color: '#6366f1',
                                   '& .MuiCircularProgress-circle': {
                                     strokeLinecap: 'round',
                                   }
@@ -1128,7 +1123,7 @@ const ApiTester: React.FC = () => {
                               />
                               <Typography 
                                 sx={{ 
-                                  color: 'rgba(255,255,255,0.8)',
+                                  color: '#000000',
                                   fontWeight: 500,
                                 }}
                               >
@@ -1151,7 +1146,8 @@ const ApiTester: React.FC = () => {
                               <Typography 
                                 sx={{ 
                                   fontStyle: 'italic',
-                                  color: 'rgba(255,255,255,0.6)',
+                                  color: '#000000',
+                                  opacity: 0.6,
                                   fontSize: '1.1rem',
                                 }}
                               >
@@ -1169,47 +1165,24 @@ const ApiTester: React.FC = () => {
                                 p: 3,
                                 maxHeight: '600px',
                                 overflow: 'auto',
-                                background: 'rgba(0, 0, 0, 0.3)',
-                                backdropFilter: 'blur(8px)',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                backgroundColor: '#ffffff',
+                                border: '1px solid rgba(0, 0, 0, 0.1)',
                                 borderRadius: 2,
                                 fontFamily: 'monospace',
                                 fontSize: '0.9rem',
                                 lineHeight: 1.6,
                                 whiteSpace: 'pre-wrap',
                                 wordBreak: 'break-all',
-                                color: 'rgba(255,255,255,0.9)',
-                                position: 'relative',
-                                '&::-webkit-scrollbar': {
-                                  width: 8,
-                                },
-                                '&::-webkit-scrollbar-track': {
-                                  background: 'rgba(255, 255, 255, 0.1)',
-                                  borderRadius: 4,
-                                },
-                                '&::-webkit-scrollbar-thumb': {
-                                  background: 'rgba(255, 255, 255, 0.3)',
-                                  borderRadius: 4,
-                                  '&:hover': {
-                                    background: 'rgba(255, 255, 255, 0.4)',
-                                  }
-                                },
-                                '&::before': {
-                                  content: '""',
-                                  position: 'absolute',
-                                  top: 0,
-                                  left: 0,
-                                  right: 0,
-                                  height: 1,
-                                  background: 'linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.4), transparent)',
-                                }
+                                color: '#000000',
+                                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)',
                               }}
                               aria-live="polite"
+                              role="log"
                             >
                               {response}
                             </Paper>
                           )}
-                        </Box>
+                        </Card>
                       </TabPanel>
                     </CardContent>
                   </Card>
@@ -1227,7 +1200,7 @@ const ApiTester: React.FC = () => {
                   backdropFilter: 'blur(12px)',
                   border: '1px solid rgba(59, 130, 246, 0.3)',
                   borderRadius: 2,
-                  color: 'rgba(255,255,255,0.9)',
+                  color: '#000000',
                   '& .MuiAlert-icon': {
                     color: '#3b82f6',
                   }

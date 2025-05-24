@@ -28,20 +28,41 @@ const ServerLogsPanel = memo(({ logs, isLoading, onRefresh }: ServerLogsPanelPro
   
   const getLogColor = useCallback((level: string): string => {
     switch (level.toUpperCase()) {
-      case 'ERROR': return theme.palette.error.main;
-      case 'WARNING': return theme.palette.warning.main;
-      case 'INFO': return theme.palette.info.main;
-      case 'DEBUG': return theme.palette.text.secondary;
-      default: return theme.palette.text.primary;
+      case 'ERROR': return '#ef4444';
+      case 'WARNING': return '#f59e0b';
+      case 'INFO': return '#3b82f6';
+      case 'DEBUG': return 'rgba(255,255,255,0.6)';
+      default: return 'rgba(255,255,255,0.8)';
     }
-  }, [theme]);
+  }, []);
   
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">Server Logs</Typography>
+        <Typography 
+          variant="h6"
+          sx={{
+            color: 'rgba(255,255,255,0.9)',
+            fontWeight: 600,
+          }}
+        >
+          Server Logs
+        </Typography>
         <Tooltip title="Refresh logs">
-          <IconButton onClick={onRefresh} disabled={isLoading}>
+          <IconButton 
+            onClick={onRefresh} 
+            disabled={isLoading}
+            sx={{
+              background: 'rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: 'rgba(255,255,255,0.8)',
+              '&:disabled': {
+                background: 'rgba(255, 255, 255, 0.05)',
+                color: 'rgba(255,255,255,0.3)',
+              }
+            }}
+          >
             <RefreshIcon />
           </IconButton>
         </Tooltip>
@@ -49,17 +70,34 @@ const ServerLogsPanel = memo(({ logs, isLoading, onRefresh }: ServerLogsPanelPro
       
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-          <CircularProgress />
+          <CircularProgress sx={{ color: 'rgba(99, 102, 241, 0.8)' }} />
         </Box>
       ) : logs.length === 0 ? (
-        <Alert severity="info">No logs available.</Alert>
+        <Alert 
+          severity="info"
+          sx={{
+            background: 'rgba(59, 130, 246, 0.15) !important',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            borderRadius: 2,
+            color: 'rgba(255,255,255,0.9)',
+            '& .MuiAlert-icon': {
+              color: '#3b82f6',
+            }
+          }}
+        >
+          No logs available.
+        </Alert>
       ) : (
         <Paper 
           variant="outlined" 
           sx={{ 
             maxHeight: '400px', 
             overflow: 'auto', 
-            bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50' 
+            background: 'rgba(0, 0, 0, 0.3)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: 2,
           }}
         >
           <List dense>
@@ -82,15 +120,19 @@ const ServerLogsPanel = memo(({ logs, isLoading, onRefresh }: ServerLogsPanelPro
                         size="small" 
                         sx={{ 
                           bgcolor: getLogColor(log.level),
-                          color: theme.palette.getContrastText(getLogColor(log.level)),
+                          color: log.level.toUpperCase() === 'DEBUG' ? '#000' : '#fff',
                           width: 70,
-                          fontSize: '0.7rem'
+                          fontSize: '0.7rem',
+                          fontWeight: 'bold',
                         }} 
                       />
                       <Typography 
                         variant="body2" 
                         component="span" 
-                        sx={{ fontWeight: log.level.toUpperCase() === 'ERROR' ? 'bold' : 'normal' }}
+                        sx={{ 
+                          fontWeight: log.level.toUpperCase() === 'ERROR' ? 'bold' : 'normal',
+                          color: 'rgba(255,255,255,0.9)'
+                        }}
                       >
                         {log.message}
                       </Typography>
@@ -99,7 +141,7 @@ const ServerLogsPanel = memo(({ logs, isLoading, onRefresh }: ServerLogsPanelPro
                   secondary={formatTimestamp(log.timestamp)}
                   secondaryTypographyProps={{ 
                     variant: 'caption',
-                    sx: { color: theme.palette.text.secondary }
+                    sx: { color: 'rgba(255,255,255,0.7)' }
                   }}
                 />
               </ListItem>
