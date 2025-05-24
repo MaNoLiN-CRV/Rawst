@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useRef, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -25,7 +25,31 @@ interface ServerLogsPanelProps {
 
 const ServerLogsPanel = memo(({ logs, isLoading, onRefresh }: ServerLogsPanelProps) => {
   const theme = useTheme();
-  
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastScrollTop = useRef<number>(0);
+
+  // Save scroll position
+  useEffect(() => {
+    const container = scrollContainerRef.current?.querySelector('.MuiPaper-root');
+    if (container) {
+      const handleScroll = () => {
+        lastScrollTop.current = container.scrollTop;
+      };
+      container.addEventListener('scroll', handleScroll, { passive: true });
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
+
+  // Restore scroll position after logs update
+  useEffect(() => {
+    const container = scrollContainerRef.current?.querySelector('.MuiPaper-root');
+    if (container && lastScrollTop.current > 0) {
+      setTimeout(() => {
+        container.scrollTop = lastScrollTop.current;
+      }, 0);
+    }
+  }, [logs]);
+
   const getLogColor = useCallback((level: string): string => {
     switch (level.toUpperCase()) {
       case 'ERROR': return '#ef4444';
@@ -37,7 +61,7 @@ const ServerLogsPanel = memo(({ logs, isLoading, onRefresh }: ServerLogsPanelPro
   }, []);
   
   return (
-    <Box>
+    <Box ref={scrollContainerRef}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography 
           variant="h6"

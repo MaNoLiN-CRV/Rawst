@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useRef, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -19,6 +19,32 @@ interface ServerMetricsPanelProps {
 }
 
 const ServerMetricsPanel = memo(({ metrics, isLoading }: ServerMetricsPanelProps) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastScrollTop = useRef<number>(0);
+
+  // Save scroll position before re-render
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const handleScroll = () => {
+        lastScrollTop.current = container.scrollTop;
+      };
+      container.addEventListener('scroll', handleScroll, { passive: true });
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
+
+  // Restore scroll position after metrics update
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container && lastScrollTop.current > 0) {
+      // Use setTimeout to ensure DOM has updated
+      setTimeout(() => {
+        container.scrollTop = lastScrollTop.current;
+      }, 0);
+    }
+  }, [metrics]);
+
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
@@ -52,7 +78,7 @@ const ServerMetricsPanel = memo(({ metrics, isLoading }: ServerMetricsPanelProps
     : 100;
   
   return (
-    <Box>
+    <Box ref={scrollContainerRef} sx={{ maxHeight: '500px', overflow: 'auto' }}>
       <Typography 
         variant="h6" 
         gutterBottom

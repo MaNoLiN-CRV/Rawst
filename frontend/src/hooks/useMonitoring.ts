@@ -10,9 +10,9 @@ export const useMonitoring = ({ fetchServerMetrics, fetchServerLogs }: UseMonito
 
   const handleTabChange = useCallback((_event: React.SyntheticEvent, newValue: number): void => {
     setTabValue(newValue);
-    if (newValue === 0) fetchServerMetrics();
-    else if (newValue === 1) fetchServerLogs();
-  }, [fetchServerMetrics, fetchServerLogs]);
+    // Only logs tab now, so always fetch logs
+    if (newValue === 0) fetchServerLogs();
+  }, [fetchServerLogs]);
 
   return {
     tabValue,

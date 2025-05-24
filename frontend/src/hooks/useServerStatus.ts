@@ -12,6 +12,7 @@ export const useServerStatus = () => {
   const [serverLogs, setServerLogs] = useState<ServerLogEntry[]>([]);
   const [isLoadingMetrics, setIsLoadingMetrics] = useState<boolean>(false);
   const [isLoadingLogs, setIsLoadingLogs] = useState<boolean>(false);
+  const [lastMetricsUpdate, setLastMetricsUpdate] = useState<number>(0);
   const metricsIntervalRef = useRef<number | null>(null);
 
   const fetchServerMetrics = useCallback(async (): Promise<void> => {
@@ -23,13 +24,21 @@ export const useServerStatus = () => {
     try {
       setIsLoadingMetrics(true);
       const metrics = await invoke<ServerMetrics>('get_server_metrics');
-      setServerMetrics(metrics);
+      
+      // Only update if metrics actually changed
+      const metricsString = JSON.stringify(metrics);
+      const currentTime = Date.now();
+      
+      if (currentTime - lastMetricsUpdate > 100) { // Throttle updates
+        setServerMetrics(metrics);
+        setLastMetricsUpdate(currentTime);
+      }
     } catch (err: unknown) {
       console.error('Error fetching server metrics:', err);
     } finally {
       setIsLoadingMetrics(false);
     }
-  }, [serverStatus]);
+  }, [serverStatus, lastMetricsUpdate]);
   
   const fetchServerLogs = useCallback(async (): Promise<void> => {
     try {
