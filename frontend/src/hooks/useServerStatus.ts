@@ -26,7 +26,6 @@ export const useServerStatus = () => {
       const metrics = await invoke<ServerMetrics>('get_server_metrics');
       
       // Only update if metrics actually changed
-      const metricsString = JSON.stringify(metrics);
       const currentTime = Date.now();
       
       if (currentTime - lastMetricsUpdate > 100) { // Throttle updates

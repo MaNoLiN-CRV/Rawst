@@ -5,7 +5,7 @@ interface UseMonitoringProps {
   fetchServerLogs: () => void;
 }
 
-export const useMonitoring = ({ fetchServerMetrics, fetchServerLogs }: UseMonitoringProps) => {
+export const useMonitoring = ({ fetchServerLogs }: UseMonitoringProps) => {
   const [tabValue, setTabValue] = useState<number>(0);
 
   const handleTabChange = useCallback((_event: React.SyntheticEvent, newValue: number): void => {
