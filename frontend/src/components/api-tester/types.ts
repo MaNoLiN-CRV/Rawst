@@ -1,3 +1,5 @@
+import { SelectChangeEvent } from '@mui/material';
+
 /**
  * Represents a field within an API entity.
  */
@@ -96,4 +98,44 @@ export interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
   value: number;
+}
+
+/**
+ * Interface for API request parameters
+ */
+export interface ApiRequestParams {
+  url: string;
+  method: string;
+  body: string | null;
+  [key: string]: string | null | unknown;
+}
+
+/**
+ * Type for HTTP methods that require a request body
+ */
+export type HttpMethodWithBody = 'POST' | 'PUT';
+
+/**
+ * Props for the EntitySelector component
+ */
+export interface EntitySelectorProps {
+  entities: Array<{ name: string }>;
+  selectedEntityName: string;
+  isLoadingConfig: boolean;
+  serverStatus: string;
+  onEntityChange: (event: SelectChangeEvent<string>) => void;
+}
+
+/**
+ * Props for the RequestPanel component
+ */
+export interface RequestPanelProps {
+  selectedEndpoint: EndpointConfig;
+  currentFullUrl: string;
+  requestBody: string;
+  isSendingRequest: boolean;
+  serverStatus: string;
+  onRequestBodyChange: (value: string) => void;
+  onSendRequest: () => void;
+  getMethodColor: (method: string) => string;
 }
