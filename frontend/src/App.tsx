@@ -128,25 +128,26 @@ function AppContent() {
   const toggleDrawer = () => setDrawerOpen(!drawerOpen);
 
   /**
-   * Handle actions at each step
+   * Handle actions at each step - remove automatic advancement
    */
   const onConnectSuccess = async (success: boolean) => {
     if (success) {
-      setStep(1);
       setAlert({
         message: 'Database connected successfully!',
         severity: 'success'
       });
+      setStep(1); 
+      // Don't automatically advance step - let user click Next
     }
   };
 
   const onSelectTablesSuccess = async (success: boolean) => {
     if (success) {
-      setStep(2);
       setAlert({
         message: `Selected ${selectedTables.length} tables successfully!`,
         severity: 'success'
       });
+      // Don't automatically advance step - let user click Next
     }
   };
 
@@ -418,7 +419,7 @@ function AppContent() {
         api_prefix: "/api",
         server: {
           host: "localhost",
-          port: 8080,
+          port: 8000,
           request_timeout_seconds: 30,
           max_payload_size_mb: 10,
           rate_limiting: {

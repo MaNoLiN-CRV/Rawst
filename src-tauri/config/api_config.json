@@ -26,21 +26,21 @@
   },
   "entities_basic": [
     {
-      "name": "empleado_datos_prof",
-      "table_name": "empleado_datos_prof",
+      "name": "departamento",
+      "table_name": "departamento",
       "fields": [
         {
-          "name": "dni",
+          "name": "id_depto",
           "data_type": "String",
           "required": true
         },
         {
-          "name": "categoria",
+          "name": "nom_depto",
           "data_type": "String",
           "required": true
         },
         {
-          "name": "sueldo_bruto_anual",
+          "name": "id_sede",
           "data_type": "String",
           "required": true
         }
@@ -57,12 +57,56 @@
           "required": true
         },
         {
-          "name": "nom_emp",
+          "name": "id_depto",
+          "data_type": "String",
+          "required": true
+        }
+      ],
+      "authentication": false
+    },
+    {
+      "name": "empleado_datos_prof",
+      "table_name": "empleado_datos_prof",
+      "fields": [
+        {
+          "name": "dni",
           "data_type": "String",
           "required": true
         },
         {
-          "name": "id_depto",
+          "name": "categoria",
+          "data_type": "String",
+          "required": true
+        },
+        {
+          "name": "sueldo_bruto_anual",
+          "data_type": "String",
+          "required": false
+        }
+      ],
+      "authentication": false
+    },
+    {
+      "name": "proyecto",
+      "table_name": "proyecto",
+      "fields": [
+        {
+          "name": "id_proy",
+          "data_type": "String",
+          "required": true
+        },
+        {
+          "name": "f_inicio",
+          "data_type": "String",
+          "required": true
+        },
+        {
+          "name": "f_fin",
+          "data_type": "String",
+          "required": true
+        },
+        {
+          "name": "nom_proy",
           "data_type": "String",
           "required": true
         }
