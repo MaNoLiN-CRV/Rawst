@@ -1,0 +1,89 @@
+@startuml
+!theme plain
+title RusterAPI - Component Interaction Diagram
+
+package "Frontend Components" {
+    [DatabaseConnection] as DB_UI
+    [EntitySelector] as ENT_UI
+    [EntityConfig] as CONFIG_UI
+    [ApiTester] as TEST_UI
+    [MainMenu] as MENU_UI
+    [JsonPreview] as JSON_UI
+    [DebugLogs] as LOG_UI
+}
+
+package "React Hooks Layer" {
+    [useServerStatus] as SERVER_HOOK
+    [useApiConfiguration] as CONFIG_HOOK
+    [useApiTester] as TEST_HOOK
+    [useDatabaseOperations] as DB_HOOK
+    [useMonitoring] as MONITOR_HOOK
+}
+
+package "Tauri Interface" {
+    [test_database_connection] as TEST_DB
+    [get_mariadb_tables] as GET_TABLES
+    [save_configuration] as SAVE_CONFIG
+    [start_api_server] as START_SERVER
+    [stop_api_server] as STOP_SERVER
+    [get_server_status] as GET_STATUS
+    [get_server_metrics] as GET_METRICS
+    [test_api_endpoint] as TEST_API
+}
+
+package "Backend Services" {
+    [ApiAdapter] as API_ADAPTER
+    [DataSourceFactory] as DS_FACTORY
+    [MariaDbDatasource] as MARIA_DS
+    [rocket_adapter] as ROCKET
+    [ConfigurationManager] as CONFIG_MGR
+    [HandlerManager] as HANDLER_MGR
+}
+
+' UI to Hooks connections
+DB_UI --> DB_HOOK
+ENT_UI --> CONFIG_HOOK
+CONFIG_UI --> CONFIG_HOOK
+TEST_UI --> TEST_HOOK
+MENU_UI --> SERVER_HOOK
+LOG_UI --> MONITOR_HOOK
+
+' Hooks to Tauri commands
+DB_HOOK --> TEST_DB
+DB_HOOK --> GET_TABLES
+CONFIG_HOOK --> SAVE_CONFIG
+CONFIG_HOOK --> GET_TABLES
+SERVER_HOOK --> START_SERVER
+SERVER_HOOK --> STOP_SERVER
+SERVER_HOOK --> GET_STATUS
+TEST_HOOK --> TEST_API
+MONITOR_HOOK --> GET_METRICS
+
+' Tauri to Backend
+TEST_DB --> MARIA_DS
+GET_TABLES --> MARIA_DS
+SAVE_CONFIG --> CONFIG_MGR
+START_SERVER --> API_ADAPTER
+STOP_SERVER --> API_ADAPTER
+GET_STATUS --> API_ADAPTER
+TEST_API --> ROCKET
+GET_METRICS --> API_ADAPTER
+
+' Backend internal connections
+API_ADAPTER --> DS_FACTORY
+API_ADAPTER --> ROCKET
+API_ADAPTER --> HANDLER_MGR
+DS_FACTORY --> MARIA_DS
+CONFIG_MGR --> API_ADAPTER
+
+' Data flow indicators
+note top of DB_UI : "User configures\ndatabase connection"
+note top of ENT_UI : "User selects entities\nto expose as API"
+note top of CONFIG_UI : "User customizes\nentity configuration"
+note top of TEST_UI : "User tests generated\nAPI endpoints"
+
+note bottom of ROCKET : "Serves HTTP requests\nfor generated API"
+note bottom of MARIA_DS : "Handles database\noperations"
+note bottom of HANDLER_MGR : "Manages CRUD\nendpoint handlers"
+
+@enduml

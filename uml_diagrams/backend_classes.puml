@@ -1,0 +1,359 @@
+@startuml
+!theme plain
+title RusterAPI - Complete Backend Class Diagram
+
+package "HTTP Layer (Rocket)" {
+    class rocket_adapter {
+        +start_server<T>(api_adapter: ApiAdapter<T>): Result<()>
+    }
+    
+    class RocketApiState {
+        +api_adapter: Arc<dyn ApiAdapterTrait<T> + Send + Sync>
+    }
+    
+    class ApiResponseWrapper {
+        +0: ApiResponse<T>
+        +respond_to(): response::Result
+    }
+    
+    package "Rocket Handlers" {
+        class CatchAllHandlers {
+            +get_handler(path: PathBuf, state: RocketApiState): ApiResponseWrapper
+            +post_handler(path: PathBuf, body: Data, state: RocketApiState): ApiResponseWrapper
+            +put_handler(path: PathBuf, body: Data, state: RocketApiState): ApiResponseWrapper
+            +delete_handler(path: PathBuf, state: RocketApiState): ApiResponseWrapper
+            +patch_handler(path: PathBuf, body: Data, state: RocketApiState): ApiResponseWrapper
+            +process_request(request: ApiRequest, state: RocketApiState): ApiResponse
+            +body_to_string(body: rocket::Data): String
+        }
+    }
+}
+
+package "API Core Layer" {
+    interface ApiAdapterTrait {
+        +handle_request(request: ApiRequest): Result<ApiResponse<T>>
+    }
+    
+    class ApiAdapter {
+        +config: Config
+        +entities: HashMap<String, EntityApi>
+        +new(config: Config, datasources: HashMap): ApiAdapter
+        +start_server(): Result<()>
+    }
+    
+    class EntityApi {
+        +datasource: Box<dyn DataSource>
+        +endpoints: HashMap<String, EndpointHandler>
+    }
+    
+    class ApiRequest {
+        +method: HttpMethod
+        +path: String
+        +params: HashMap<String, String>
+        +headers: HashMap<String, String>
+        +body: Option<String>
+    }
+    
+    class ApiResponse {
+        +status: u16
+        +headers: HashMap<String, String>
+        +body: Option<ApiResponseBody<T>>
+    }
+    
+    enum ApiResponseBody {
+        Single(T)
+        List(Vec<T>)
+        Json(T)
+    }
+}
+
+package "Handler Management" {
+    class ApiHandlerManager {
+        +config: Config
+        +datasource: Box<dyn DataSource>
+        +new(config: Config, datasource: Box<dyn DataSource>): ApiHandlerManager
+        +initialize_endpoints(entity: &Entity): HashMap<String, EndpointHandler>
+    }
+    
+    package "CRUD Handlers" {
+        class CreateHandler {
+            +register_create_endpoint(datasource, entity, endpoints)
+        }
+        
+        class ReadHandler {
+            +register_read_endpoint(datasource, entity, endpoints)
+        }
+        
+        class UpdateHandler {
+            +register_update_endpoint(datasource, entity, endpoints)
+        }
+        
+        class DeleteHandler {
+            +register_delete_endpoint(datasource, entity, endpoints)
+        }
+        
+        class ListHandler {
+            +register_list_endpoint(datasource, entity, endpoints)
+        }
+    }
+    
+    class CustomRouteHandler {
+        +register_custom_endpoint(datasource, entity, custom_route, endpoints)
+    }
+}
+
+package "Data Layer" {
+    class DataSourceFactory {
+        +create_datasources<T>(config: &Config): HashMap<String, Box<dyn DataSource<T>>>
+        +create_mariadb_datasource<T>(config: &Config): Result<Box<dyn DataSource<T>>>
+    }
+    
+    interface DataSource {
+        +get_all(entity_name_override: Option<&str>): Result<Vec<T>>
+        +get_by_id(id: &str, entity_name_override: Option<&str>): Result<Option<T>>
+        +create(item: T, entity_name_override: Option<&str>): Result<T>
+        +update(id: &str, item: T, entity_name_override: Option<&str>): Result<T>
+        +delete(id: &str, entity_name_override: Option<&str>): Result<bool>
+        +box_clone(): Box<dyn DataSource<T>>
+    }
+    
+    interface DatabaseCommon {
+        +get_connection(): Result<Box<dyn Any>>
+        +connect(): Result<()>
+        +disconnect(): Result<()>
+    }
+    
+    interface RelationalSource {
+        +get_db_structure(): &dyn Any
+    }
+    
+    class MariaDbDatasource {
+        +config: DatabaseConfig
+        +pool: Option<MySqlPool>
+        +entity_mappings: HashMap<String, TableMapping>
+        +runtime: Runtime
+        +new(config: &DatabaseConfig): MariaDbDatasource
+        +configure_entity_mappings(entities: &[Entity]): Result<()>
+        +generate_select_query(entity_name: &str): Result<String>
+        +generate_insert_query(entity_name: &str): Result<String>
+        +generate_update_query(entity_name: &str): Result<String>
+        +generate_delete_query(entity_name: &str): Result<String>
+        +map_row_to_entity<T>(row: MySqlRow, entity_name: &str): Result<T>
+    }
+    
+    class TableMapping {
+        +table_name: String
+        +primary_key: String
+        +fields: Vec<FieldMapping>
+    }
+    
+    class FieldMapping {
+        +field_name: String
+        +column_name: String
+        +field_type: String
+    }
+}
+
+package "Configuration" {
+    class Config {
+        +api_version: String
+        +api_prefix: Option<String>
+        +server: ServerConfig
+        +database: DatabaseConfig
+        +entities_basic: Vec<EntityBasic>
+        +entities_advanced: Vec<Entity>
+        +cors: CorsConfig
+        +documentation: DocumentationConfig
+        +auth: Option<AuthConfig>
+    }
+    
+    class ServerConfig {
+        +host: String
+        +port: u16
+        +request_timeout_seconds: u64
+        +max_payload_size_mb: u64
+        +rate_limiting: RateLimitingConfig
+        +logging_level: String
+    }
+    
+    class DatabaseConfig {
+        +db_type: DatabaseType
+        +host: String
+        +port: Option<u16>
+        +username: String
+        +password: String
+        +database_name: String
+        +connection_string: String
+        +max_connections: Option<u32>
+        +timeout_seconds: Option<u32>
+        +ssl_enabled: bool
+        +make_url(): String
+    }
+    
+    class Entity {
+        +name: String
+        +table_name: String
+        +fields: Vec<Field>
+        +relationships: Vec<Relationship>
+        +endpoints: EndpointConfig
+        +authentication: bool
+        +authorization: Authorization
+        +validations: Vec<Validation>
+        +pagination: Option<PaginationConfig>
+    }
+    
+    class EntityBasic {
+        +name: String
+        +table_name: String
+        +fields: Vec<FieldBasic>
+        +authentication: bool
+    }
+    
+    enum DatabaseType {
+        MySQL
+        PostgreSQL
+        SQLite
+        MongoDB
+    }
+}
+
+package "Serialization & Connection" {
+    class SerializationService {
+        +serialize<T>(data: T): Result<String>
+        +deserialize<T>(json: &str): Result<T>
+        +to_json_value<T>(data: T): Result<serde_json::Value>
+        +from_json_value<T>(value: serde_json::Value): Result<T>
+    }
+    
+    class ConnectionManager {
+        +establish_connection(config: &DatabaseConfig): Result<Connection>
+        +test_connection(config: &DatabaseConfig): Result<bool>
+        +create_pool(config: &DatabaseConfig): Result<Pool>
+        +health_check(pool: &Pool): Result<()>
+    }
+}
+
+package "Error Handling" {
+    enum RusterApiError {
+        EntityNotFound(String)
+        ValidationError(String)
+        BadRequest(String)
+        DatabaseError(String)
+        ServerError(String)
+        EndpointGenerationError(String)
+        ConfigurationError(String)
+        SerializationError(String)
+    }
+    
+    enum DataSourceError {
+        ConnectionError(String)
+        QueryError(String)
+        NotFound(String)
+        ValidationError(String)
+        MappingError(String)
+        SerializationError(String)
+        ConfigurationError(String)
+    }
+}
+
+package "Tauri Bridge" {
+    class TauriCommands {
+        +get_mariadb_tables(config: DbConfig): Result<Vec<TableInfo>>
+        +get_mariadb_table_columns(request: TableColumnsRequest): Result<Vec<String>>
+        +save_configuration(config: ApiConfig): Result<String>
+        +get_current_configuration(): Result<ApiConfig>
+        +test_api_endpoint(url: String, method: String, body: Option<String>): Result<String>
+        +start_api_server(): Result<String>
+        +stop_api_server(): Result<String>
+        +get_server_status(): Result<String>
+        +get_server_metrics(): Result<ServerMetrics>
+        +get_server_logs(limit: Option<usize>): Result<Vec<ServerLogEntry>>
+        +restart_api_server(): Result<String>
+        +test_database_connection(): Result<String>
+        +validate_database_config(config: &DatabaseConfig): bool
+    }
+    
+    class ServerMetrics {
+        +uptime_seconds: u64
+        +request_count: u64
+        +error_count: u64
+        +is_running: bool
+        +memory_usage: Option<u64>
+        +cpu_usage: Option<f32>
+    }
+    
+    class ServerLogEntry {
+        +timestamp: u64
+        +level: String
+        +message: String
+        +module: Option<String>
+    }
+    
+    class ServerState {
+        +running: AtomicBool
+        +start_time: AtomicU64
+        +request_count: AtomicU64
+        +error_count: AtomicU64
+        +server_error: Mutex<Option<String>>
+        +server_logs: Mutex<Vec<ServerLogEntry>>
+    }
+    
+    class GenericEntity {
+        +data: HashMap<String, serde_json::Value>
+        +id: Option<String>
+        +entity_name(): String
+    }
+}
+
+' Relationships
+rocket_adapter --> ApiAdapter
+RocketApiState --> ApiAdapterTrait
+CatchAllHandlers --> RocketApiState
+CatchAllHandlers --> ApiRequest
+CatchAllHandlers --> ApiResponse
+rocket_adapter --> RocketApiState
+
+ApiAdapter ..|> ApiAdapterTrait
+ApiAdapter --> EntityApi
+ApiAdapter --> Config
+EntityApi --> DataSource
+
+ApiHandlerManager --> DataSource
+ApiHandlerManager --> Entity
+ApiHandlerManager --> CreateHandler
+ApiHandlerManager --> ReadHandler
+ApiHandlerManager --> UpdateHandler
+ApiHandlerManager --> DeleteHandler
+ApiHandlerManager --> ListHandler
+ApiHandlerManager --> CustomRouteHandler
+
+DataSourceFactory --> DataSource
+DataSourceFactory --> MariaDbDatasource
+DataSourceFactory --> Config
+DataSourceFactory --> ConnectionManager
+
+MariaDbDatasource ..|> DataSource
+MariaDbDatasource ..|> DatabaseCommon
+MariaDbDatasource ..|> RelationalSource
+MariaDbDatasource --> TableMapping
+MariaDbDatasource --> ConnectionManager
+TableMapping --> FieldMapping
+
+Config --> ServerConfig
+Config --> DatabaseConfig
+Config --> Entity
+Config --> EntityBasic
+DatabaseConfig --> DatabaseType
+
+TauriCommands --> Config
+TauriCommands --> ServerMetrics
+TauriCommands --> ServerLogEntry
+TauriCommands --> ServerState
+TauriCommands --> GenericEntity
+TauriCommands --> ApiAdapter
+
+SerializationService --> RusterApiError
+ConnectionManager --> DataSourceError
+GenericEntity ..|> ApiEntity
+
+@enduml

@@ -1,0 +1,146 @@
+@startuml
+!theme plain
+title RusterAPI - System Architecture
+
+package "Frontend Layer (React/TypeScript)" {
+    component [DatabaseConnection] as DbConn
+    component [EntitySelector] as EntSel
+    component [EntityConfig] as EntConf
+    component [ApiTester] as ApiTest
+    component [JsonPreview] as JsonPrev
+    component [DebugLogs] as DebugLogs
+    component [MainMenu] as MainMenu
+    component [NavigationDrawer] as NavDrawer
+    
+    package "React Hooks" {
+        component [useServerStatus] as ServerHook
+        component [useApiConfiguration] as ConfigHook
+        component [useApiTester] as TesterHook
+        component [useDatabaseOperations] as DbHook
+        component [useMonitoring] as MonitorHook
+    }
+}
+
+package "Desktop Integration (Tauri)" {
+    component [Tauri Commands] as TauriCmd
+    component [IPC Layer] as IPC
+    component [Native Bridge] as Bridge
+    component [File System] as FS
+    component [OS Integration] as OS
+}
+
+package "Backend Layer (Rust)" {
+    package "HTTP Server (Rocket)" {
+        component [rocket_adapter] as RocketAdpt
+        component [CatchAllHandlers] as Handlers
+        component [RocketApiState] as RocketState
+        component [ApiResponseWrapper] as ResponseWrapper
+    }
+    
+    package "API Core" {
+        component [ApiAdapter] as ApiAdpt
+        component [EntityApi] as EntApi
+        component [ApiHandlerManager] as HandlerMgr
+        
+        package "CRUD Handlers" {
+            component [CreateHandler] as Create
+            component [ReadHandler] as Read
+            component [UpdateHandler] as Update
+            component [DeleteHandler] as Delete
+            component [ListHandler] as List
+        }
+        
+        package "Custom Handlers" {
+            component [CustomRouteHandler] as Custom
+        }
+    }
+    
+    package "Data Layer" {
+        component [DataSourceFactory] as DSFactory
+        component [MariaDbDatasource] as MariaDS
+        component [ConnectionManager] as ConnMgr
+        component [TableMapping] as TableMap
+        component [SerializationService] as Serializer
+    }
+    
+    package "Configuration" {
+        component [Config] as Conf
+        component [ServerConfig] as ServerConf
+        component [DatabaseConfig] as DbConf
+        component [Entity] as Ent
+    }
+    
+    package "Error Handling" {
+        component [RusterApiError] as ApiErr
+        component [DataSourceError] as DSErr
+    }
+}
+
+package "External Systems" {
+    database "MariaDB/MySQL" as DB {
+        [Tables] as Tables
+        [Relationships] as Rels
+        [Indexes] as Idx
+    }
+    
+    component [File System] as ExtFS
+    component [Network] as Net
+}
+
+' Frontend to Tauri connections
+DbConn --> TauriCmd
+EntSel --> TauriCmd
+EntConf --> TauriCmd
+ApiTest --> TauriCmd
+DebugLogs --> TauriCmd
+
+ServerHook --> TauriCmd
+ConfigHook --> TauriCmd
+TesterHook --> TauriCmd
+DbHook --> TauriCmd
+MonitorHook --> TauriCmd
+
+' Tauri to Backend connections
+TauriCmd --> IPC
+IPC --> Bridge
+Bridge --> ApiAdpt
+Bridge --> Conf
+Bridge --> ConnMgr
+
+' Internal Backend connections
+ApiAdpt --> EntApi
+ApiAdpt --> RocketAdpt
+RocketAdpt --> Handlers
+RocketAdpt --> RocketState
+Handlers --> ResponseWrapper
+
+EntApi --> HandlerMgr
+HandlerMgr --> Create
+HandlerMgr --> Read
+HandlerMgr --> Update
+HandlerMgr --> Delete
+HandlerMgr --> List
+HandlerMgr --> Custom
+
+ApiAdpt --> DSFactory
+DSFactory --> MariaDS
+DSFactory --> ConnMgr
+MariaDS --> TableMap
+MariaDS --> Serializer
+
+Conf --> ServerConf
+Conf --> DbConf
+Conf --> Ent
+
+' Data flow to external systems
+MariaDS --> DB
+ConnMgr --> DB
+TauriCmd --> ExtFS
+Bridge --> OS
+
+' Error handling
+ApiAdpt --> ApiErr
+MariaDS --> DSErr
+ConnMgr --> DSErr
+
+@enduml

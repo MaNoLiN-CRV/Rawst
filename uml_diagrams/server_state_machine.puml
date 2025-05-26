@@ -1,0 +1,113 @@
+@startuml
+!theme plain
+title RusterAPI - Server State Machine
+
+[*] --> Stopped : Application Start
+
+state Stopped {
+    Stopped : Server not running
+    Stopped : No API endpoints available
+    Stopped : Configuration can be modified
+    Stopped : Database connection not established
+}
+
+state Starting {
+    Starting : Validating configuration
+    Starting : Establishing database connection
+    Starting : Generating API endpoints
+    Starting : Initializing Rocket server
+}
+
+state Running {
+    Running : HTTP server active
+    Running : API endpoints responding
+    Running : Database connection pool active
+    Running : Metrics being collected
+    
+    state Running_Details {
+        [*] --> Idle
+        Idle --> Processing : HTTP Request
+        Processing --> Idle : Response Sent
+        Processing --> Error : Request Failed
+        Error --> Idle : Error Handled
+    }
+}
+
+state Stopping {
+    Stopping : Closing HTTP connections
+    Stopping : Shutting down Rocket server
+    Stopping : Closing database connections
+    Stopping : Cleaning up resources
+}
+
+state Error {
+    Error : Server encountered fatal error
+    Error : Database connection lost
+    Error : Configuration invalid
+    Error : Port already in use
+}
+
+state Restarting {
+    Restarting : Stopping current server
+    Restarting : Clearing error state
+    Restarting : Reloading configuration
+    Restarting : Starting fresh instance
+}
+
+' Transitions from Stopped
+Stopped --> Starting : start_api_server()
+Stopped --> Error : Invalid Configuration
+
+' Transitions from Starting
+Starting --> Running : Server Started Successfully
+Starting --> Error : Startup Failed
+Starting --> Stopped : User Cancellation
+
+' Transitions from Running
+Running --> Stopping : stop_api_server()
+Running --> Error : Fatal Error Occurred
+Running --> Restarting : restart_api_server()
+
+' Transitions from Stopping
+Stopping --> Stopped : Shutdown Complete
+Stopping --> Error : Shutdown Failed
+
+' Transitions from Error
+Error --> Starting : Retry Start
+Error --> Stopped : Reset to Stopped
+Error --> Restarting : Force Restart
+
+' Transitions from Restarting
+Restarting --> Starting : Restart Initiated
+Restarting --> Error : Restart Failed
+Restarting --> Stopped : Restart Cancelled
+
+' Back to initial state
+Stopped --> [*] : Application Exit
+Error --> [*] : Application Exit
+
+note right of Starting
+  During startup:
+  - Database schema introspection
+  - Endpoint generation
+  - Route registration
+  - Server binding
+end note
+
+note right of Running
+  During operation:
+  - Request handling
+  - Response generation
+  - Metrics collection
+  - Error logging
+end note
+
+note right of Error
+  Error conditions:
+  - Database unreachable
+  - Port binding failed
+  - Configuration invalid
+  - Memory exhaustion
+end note
+
+@enduml

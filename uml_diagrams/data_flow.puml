@@ -1,0 +1,98 @@
+@startuml
+!theme plain
+title RusterAPI - Data Flow Diagram
+
+rectangle "User Interface" {
+    (User Input) as UI
+    (Configuration Forms) as CF
+    (API Testing Interface) as ATI
+    (Results Display) as RD
+}
+
+rectangle "Frontend Processing" {
+    (React Components) as RC
+    (State Management) as SM
+    (Form Validation) as FV
+    (HTTP Client) as HC
+}
+
+rectangle "Tauri Bridge" {
+    (IPC Commands) as IPC
+    (Type Conversion) as TC
+    (Error Handling) as EH
+    (File Operations) as FO
+}
+
+rectangle "Backend Core" {
+    (Configuration Parser) as CP
+    (API Generator) as AG
+    (Request Router) as RR
+    (Response Formatter) as RF
+}
+
+rectangle "Data Processing" {
+    (Entity Mapping) as EM
+    (CRUD Operations) as CRUD
+    (Query Builder) as QB
+    (Result Serialization) as RS
+}
+
+rectangle "Database Layer" {
+    (Connection Pool) as Pool
+    (Query Execution) as QE
+    (Transaction Management) as TM
+    (Schema Introspection) as SI
+}
+
+rectangle "External Systems" {
+    database "MariaDB" as DB
+    file "Config Files" as Files
+    cloud "Generated API" as API
+}
+
+' Data flow connections
+UI --> CF
+CF --> FV
+FV --> RC
+RC --> SM
+SM --> HC
+HC --> IPC
+
+IPC --> TC
+TC --> CP
+CP --> AG
+AG --> EM
+EM --> CRUD
+
+CRUD --> QB
+QB --> QE
+QE --> Pool
+Pool --> DB
+
+DB --> QE
+QE --> RS
+RS --> RF
+RF --> RR
+RR --> TC
+TC --> IPC
+
+IPC --> HC
+HC --> RD
+RD --> UI
+
+' Configuration flow
+CF --> FO
+FO --> Files
+Files --> CP
+
+' API generation flow
+AG --> API
+API --> ATI
+
+' Error flow
+EH <--> IPC
+EH <--> TC
+EH <--> AG
+EH <--> CRUD
+
+@enduml

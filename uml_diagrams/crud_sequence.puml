@@ -1,0 +1,165 @@
+@startuml
+!theme plain
+title RusterAPI - Complete CRUD Operations Sequence
+
+actor "User" as U
+participant "React Frontend" as F
+participant "Tauri Bridge" as T
+participant "TauriCommands" as TC
+participant "ApiAdapter" as A
+participant "RocketAdapter" as RA
+participant "CatchAllHandlers" as CH
+participant "EntityApi" as E
+participant "HandlerManager" as HM
+participant "MariaDbDatasource" as D
+participant "ConnectionManager" as CM
+participant "MariaDB" as DB
+
+== Server Startup Sequence ==
+U -> F: Launch Application
+F -> T: Initialize Tauri
+T -> TC: Load Configuration
+TC -> A: Create ApiAdapter
+A -> RA: start_server()
+RA -> CH: Mount endpoints
+CH -> CH: Initialize catch-all routes
+RA -> RA: Launch Rocket server
+RA --> A: Server started
+A --> TC: Success
+TC --> F: Ready
+
+== Create Entity Operation ==
+U -> F: Submit new entity data
+F -> T: invoke('test_api_endpoint', POST)
+T -> TC: test_api_endpoint()
+TC -> CH: POST /api/entity
+CH -> CH: parse_request()
+CH -> A: handle_request(ApiRequest)
+A -> E: Find entity handler
+E -> HM: get_handler("POST:entity")
+HM -> D: create(entity_data)
+D -> CM: get_connection()
+CM -> DB: INSERT INTO table
+DB --> CM: result
+CM --> D: success
+D -> D: map_row_to_entity()
+D --> HM: created_entity
+HM --> E: ApiResponse
+E --> A: response
+A --> CH: ApiResponse
+CH -> CH: serialize_response()
+CH --> TC: HTTP Response
+TC --> F: JSON result
+F -> F: Update UI
+F --> U: Success message
+
+== Read Entity Operation ==
+U -> F: Request entity by ID
+F -> T: invoke('test_api_endpoint', GET)
+T -> TC: test_api_endpoint()
+TC -> CH: GET /api/entity/123
+CH -> CH: extract_path_params()
+CH -> A: handle_request(ApiRequest)
+A -> E: Find entity handler
+E -> HM: get_handler("GET:entity/:id")
+HM -> D: get_by_id("123")
+D -> CM: get_connection()
+CM -> DB: SELECT FROM table WHERE id=123
+DB --> CM: row_data
+CM --> D: result
+D -> D: map_row_to_entity()
+D --> HM: entity
+HM --> E: ApiResponse
+E --> A: response
+A --> CH: ApiResponse
+CH -> CH: serialize_response()
+CH --> TC: HTTP Response
+TC --> F: JSON entity
+F -> F: Display entity data
+F --> U: Entity details
+
+== Update Entity Operation ==
+U -> F: Submit updated entity
+F -> T: invoke('test_api_endpoint', PUT)
+T -> TC: test_api_endpoint()
+TC -> CH: PUT /api/entity/123
+CH -> CH: parse_request_body()
+CH -> A: handle_request(ApiRequest)
+A -> E: Find entity handler
+E -> HM: get_handler("PUT:entity/:id")
+HM -> D: update("123", entity_data)
+D -> CM: get_connection()
+CM -> DB: UPDATE table SET ... WHERE id=123
+DB --> CM: affected_rows
+CM --> D: success
+D -> D: map_row_to_entity()
+D --> HM: updated_entity
+HM --> E: ApiResponse
+E --> A: response
+A --> CH: ApiResponse
+CH -> CH: serialize_response()
+CH --> TC: HTTP Response
+TC --> F: JSON result
+F -> F: Update UI
+F --> U: Update confirmed
+
+== Delete Entity Operation ==
+U -> F: Confirm delete entity
+F -> T: invoke('test_api_endpoint', DELETE)
+T -> TC: test_api_endpoint()
+TC -> CH: DELETE /api/entity/123
+CH -> CH: extract_path_params()
+CH -> A: handle_request(ApiRequest)
+A -> E: Find entity handler
+E -> HM: get_handler("DELETE:entity/:id")
+HM -> D: delete("123")
+D -> CM: get_connection()
+CM -> DB: DELETE FROM table WHERE id=123
+DB --> CM: affected_rows
+CM --> D: boolean result
+D --> HM: success/failure
+HM --> E: ApiResponse
+E --> A: response
+A --> CH: ApiResponse
+CH -> CH: serialize_response()
+CH --> TC: HTTP Response
+TC --> F: JSON result
+F -> F: Update UI
+F --> U: Delete confirmed
+
+== List Entities Operation ==
+U -> F: Request entity list
+F -> T: invoke('test_api_endpoint', GET)
+T -> TC: test_api_endpoint()
+TC -> CH: GET /api/entity
+CH -> CH: parse_query_params()
+CH -> A: handle_request(ApiRequest)
+A -> E: Find entity handler
+E -> HM: get_handler("GET:entity")
+HM -> D: get_all()
+D -> CM: get_connection()
+CM -> DB: SELECT FROM table
+DB --> CM: multiple_rows
+CM --> D: result_set
+D -> D: map_rows_to_entities()
+D --> HM: entity_list
+HM --> E: ApiResponse
+E --> A: response
+A --> CH: ApiResponse
+CH -> CH: serialize_response()
+CH --> TC: HTTP Response
+TC --> F: JSON array
+F -> F: Display entity list
+F --> U: Entity list
+
+== Error Handling ==
+note over CH, D
+  All operations include comprehensive
+  error handling at each layer:
+  - Validation errors
+  - Database connection errors
+  - Serialization errors
+  - Business logic errors
+end note
+
+@enduml

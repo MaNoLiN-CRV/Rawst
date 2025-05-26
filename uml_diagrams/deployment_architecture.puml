@@ -1,0 +1,96 @@
+@startuml
+!theme plain
+title RusterAPI - Deployment Architecture
+
+node "Development Machine" {
+    package "RusterAPI Desktop Application" {
+        component "Tauri Runtime" {
+            [Webview (React UI)]
+            [Rust Backend]
+            [IPC Bridge]
+        }
+        
+        package "Frontend Bundle" {
+            [React Components]
+            [TypeScript Hooks]
+            [Material-UI Styles]
+            [Vite Build Output]
+        }
+        
+        package "Backend Binary" {
+            [API Core]
+            [Rocket HTTP Server]
+            [Database Connectors]
+            [Configuration Manager]
+        }
+    }
+    
+    folder "Application Data" {
+        file "api_config.json"
+        file "server_logs.txt"
+        file "user_preferences.json"
+    }
+}
+
+node "Generated API Server" {
+    component "Dynamic HTTP Server" {
+        [Rocket Web Framework]
+        [Auto-generated Endpoints]
+        [Request/Response Handlers]
+        [CORS Configuration]
+    }
+    
+    package "Runtime Configuration" {
+        [Entity Mappings]
+        [Database Connection Pool]
+        [Endpoint Routing Rules]
+        [Validation Rules]
+    }
+}
+
+node "Database Server" {
+    database "MariaDB/MySQL" {
+        [User Tables]
+        [Application Schema]
+        [Relationships]
+        [Indexes]
+    }
+}
+
+node "Client Applications" {
+    [Web Browser]
+    [Mobile App]
+    [Desktop Client]
+    [API Testing Tools]
+}
+
+' Connections
+[Webview (React UI)] <--> [IPC Bridge]
+[IPC Bridge] <--> [Rust Backend]
+[Rust Backend] --> [API Core]
+[API Core] --> [Dynamic HTTP Server]
+
+[RusterAPI Desktop Application] --> "Application Data" : reads/writes
+[Dynamic HTTP Server] --> [MariaDB/MySQL] : SQL queries
+[Client Applications] --> [Dynamic HTTP Server] : HTTP requests
+
+' Deployment notes
+note right of "RusterAPI Desktop Application"
+  Single executable file
+  Cross-platform (Windows, macOS, Linux)
+  No additional runtime dependencies
+end note
+
+note right of "Generated API Server"
+  Runs on configurable host:port
+  Auto-discovers database schema
+  Generates REST endpoints dynamically
+end note
+
+note bottom of [MariaDB/MySQL]
+  Existing database
+  No schema modifications required
+  Supports multiple databases
+end note
+
+@enduml

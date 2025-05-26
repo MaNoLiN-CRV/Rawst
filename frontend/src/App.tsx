@@ -137,7 +137,6 @@ function AppContent() {
         severity: 'success'
       });
       setStep(1); 
-      // Don't automatically advance step - let user click Next
     }
   };
 

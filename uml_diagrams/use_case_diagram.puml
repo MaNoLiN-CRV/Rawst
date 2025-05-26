@@ -1,0 +1,151 @@
+@startuml
+!theme plain
+title RusterAPI - Use Case Diagram
+
+left to right direction
+
+actor "Developer" as Dev
+actor "API Consumer" as Consumer
+actor "Database Administrator" as DBA
+
+rectangle "RusterAPI System" {
+    
+    package "Configuration Management" {
+        usecase "Configure Database Connection" as UC1
+        usecase "Select Database Tables" as UC2
+        usecase "Customize Entity Mappings" as UC3
+        usecase "Save Configuration" as UC4
+        usecase "Load Configuration" as UC5
+    }
+    
+    package "API Generation" {
+        usecase "Generate CRUD Endpoints" as UC6
+        usecase "Validate Entity Schema" as UC7
+        usecase "Configure Endpoint Options" as UC8
+        usecase "Generate API Documentation" as UC9
+    }
+    
+    package "Server Management" {
+        usecase "Start API Server" as UC10
+        usecase "Stop API Server" as UC11
+        usecase "Restart API Server" as UC12
+        usecase "Monitor Server Status" as UC13
+        usecase "View Server Logs" as UC14
+        usecase "Check Server Metrics" as UC15
+    }
+    
+    package "API Testing" {
+        usecase "Test API Endpoints" as UC16
+        usecase "Send HTTP Requests" as UC17
+        usecase "Validate Responses" as UC18
+        usecase "Export Test Results" as UC19
+    }
+    
+    package "API Consumption" {
+        usecase "Create Entity Records" as UC20
+        usecase "Read Entity Records" as UC21
+        usecase "Update Entity Records" as UC22
+        usecase "Delete Entity Records" as UC23
+        usecase "List Entity Records" as UC24
+        usecase "Search/Filter Records" as UC25
+    }
+    
+    package "Database Operations" {
+        usecase "Introspect Database Schema" as UC26
+        usecase "Test Database Connection" as UC27
+        usecase "Handle Database Errors" as UC28
+        usecase "Manage Connection Pool" as UC29
+    }
+    
+    package "Error Handling & Monitoring" {
+        usecase "Handle Request Errors" as UC30
+        usecase "Log System Events" as UC31
+        usecase "Monitor Performance" as UC32
+        usecase "Debug Issues" as UC33
+    }
+}
+
+' Developer interactions
+Dev --> UC1
+Dev --> UC2
+Dev --> UC3
+Dev --> UC4
+Dev --> UC5
+Dev --> UC6
+Dev --> UC7
+Dev --> UC8
+Dev --> UC9
+Dev --> UC10
+Dev --> UC11
+Dev --> UC12
+Dev --> UC13
+Dev --> UC14
+Dev --> UC15
+Dev --> UC16
+Dev --> UC17
+Dev --> UC18
+Dev --> UC19
+Dev --> UC26
+Dev --> UC27
+Dev --> UC33
+
+' API Consumer interactions
+Consumer --> UC20
+Consumer --> UC21
+Consumer --> UC22
+Consumer --> UC23
+Consumer --> UC24
+Consumer --> UC25
+
+' DBA interactions (if applicable)
+DBA --> UC26
+DBA --> UC27
+DBA --> UC28
+DBA --> UC29
+
+' Use case relationships
+UC1 ..> UC27 : includes
+UC2 ..> UC26 : includes
+UC6 ..> UC7 : includes
+UC10 ..> UC29 : includes
+UC13 ..> UC15 : includes
+UC16 ..> UC17 : includes
+UC17 ..> UC18 : includes
+
+UC20 ..> UC30 : extends
+UC21 ..> UC30 : extends
+UC22 ..> UC30 : extends
+UC23 ..> UC30 : extends
+UC24 ..> UC30 : extends
+
+UC10 ..> UC31 : includes
+UC11 ..> UC31 : includes
+UC30 ..> UC31 : includes
+
+' Notes
+note right of UC6
+  Automatically generates:
+  - GET /entity (list)
+  - GET /entity/:id (read)
+  - POST /entity (create)
+  - PUT /entity/:id (update)
+  - DELETE /entity/:id (delete)
+end note
+
+note bottom of UC13
+  Real-time monitoring of:
+  - Server uptime
+  - Request count
+  - Error rate
+  - Memory usage
+end note
+
+note left of UC26
+  Discovers:
+  - Table structure
+  - Column types
+  - Primary keys
+  - Foreign key relationships
+end note
+
+@enduml
