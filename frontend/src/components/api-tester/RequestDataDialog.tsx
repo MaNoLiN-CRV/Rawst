@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -28,6 +28,7 @@ interface RequestDataDialogProps {
 
 /**
  * Interactive dialog for entering request data for POST/PUT/PATCH requests
+ * Enhanced with proper TypeScript typing and performance optimizations
  */
 const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
   open,
@@ -53,10 +54,16 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
     }
   }, [entity, open]);
 
-  const getDefaultValueForField = (field: EntityField): any => {
+  /**
+   * Gets the default value for a field based on its data type
+   */
+  const getDefaultValueForField = useCallback((field: EntityField): any => {
     const dataType = field.data_type?.toLowerCase();
     switch (dataType) {
       case 'string':
+      case 'varchar':
+      case 'text':
+      case 'longtext':
         return '';
       case 'integer':
       case 'number':
@@ -83,9 +90,12 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
       default:
         return '';
     }
-  };
+  }, []);
 
-  const handleFieldChange = (fieldName: string, value: any) => {
+  /**
+   * Handles field value changes and clears validation errors
+   */
+  const handleFieldChange = useCallback((fieldName: string, value: any): void => {
     setFormData(prev => ({
       ...prev,
       [fieldName]: value
@@ -97,9 +107,12 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
         [fieldName]: ''
       }));
     }
-  };
+  }, [errors]);
 
-  const validateForm = (): boolean => {
+  /**
+   * Validates form data and returns whether the form is valid
+   */
+  const validateForm = useCallback((): boolean => {
     const newErrors: Record<string, string> = {};
     
     entity?.fields?.forEach((field) => {
@@ -124,8 +137,8 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
           case 'smallint':
           case 'tinyint':
           case 'mediumint':
-            if (isNaN(Number(value))) {
-              newErrors[field.name] = 'Debe ser un número entero';
+            if (isNaN(Number(value)) || !Number.isInteger(Number(value))) {
+              newErrors[field.name] = 'Debe ser un número entero válido';
             }
             break;
           case 'float':
@@ -133,7 +146,7 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
           case 'decimal':
           case 'numeric':
             if (isNaN(Number(value))) {
-              newErrors[field.name] = 'Debe ser un número';
+              newErrors[field.name] = 'Debe ser un número válido';
             }
             break;
         }
@@ -142,21 +155,57 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [entity?.fields, formData]);
 
-  const handleSubmit = () => {
+  /**
+   * Handles form submission
+   */
+  const handleSubmit = useCallback((): void => {
     if (validateForm()) {
       onSubmit(formData);
       onClose();
     }
-  };
+  }, [validateForm, onSubmit, formData, onClose]);
 
-  const renderField = (field: EntityField) => {
+  /**
+   * Renders appropriate input field based on data type
+   */
+  const renderField = useCallback((field: EntityField) => {
     if (!field?.name) return null;
     
     const dataType = field.data_type?.toLowerCase();
     const value = formData[field.name] || '';
     const hasError = !!errors[field.name];
+    
+    const commonTextFieldProps = {
+      key: field.name,
+      fullWidth: true,
+      label: field.name,
+      error: hasError,
+      helperText: errors[field.name],
+      required: field.required,
+      sx: { 
+        mb: 2,
+        '& .MuiOutlinedInput-root': {
+          backgroundColor: '#ffffff !important',
+          '& fieldset': {
+            borderColor: 'rgba(0, 0, 0, 0.23) !important',
+          },
+          '&:hover fieldset': {
+            borderColor: 'rgba(0, 0, 0, 0.5) !important',
+          },
+          '&.Mui-focused fieldset': {
+            borderColor: '#1976d2 !important',
+          },
+        },
+        '& .MuiInputLabel-root': {
+          color: 'rgba(0, 0, 0, 0.6) !important',
+        },
+        '& .MuiOutlinedInput-input': {
+          color: 'rgba(0, 0, 0, 0.87) !important',
+        },
+      },
+    };
     
     switch (dataType) {
       case 'boolean':
@@ -169,26 +218,33 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
               <Switch
                 checked={!!value}
                 onChange={(e) => handleFieldChange(field.name, e.target.checked)}
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': {
+                    color: '#1976d2',
+                  },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                    backgroundColor: '#1976d2',
+                  },
+                }}
               />
             }
             label={field.name}
-            sx={{ mb: 2 }}
+            sx={{ 
+              mb: 2,
+              '& .MuiFormControlLabel-label': {
+                color: 'rgba(0, 0, 0, 0.87) !important',
+              },
+            }}
           />
         );
       
       case 'date':
         return (
           <TextField
-            key={field.name}
-            fullWidth
-            label={field.name}
+            {...commonTextFieldProps}
             type="date"
             value={value}
             onChange={(e) => handleFieldChange(field.name, e.target.value)}
-            error={hasError}
-            helperText={errors[field.name]}
-            required={field.required}
-            sx={{ mb: 2 }}
             InputLabelProps={{ shrink: true }}
           />
         );
@@ -197,16 +253,10 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
       case 'timestamp':
         return (
           <TextField
-            key={field.name}
-            fullWidth
-            label={field.name}
+            {...commonTextFieldProps}
             type="datetime-local"
             value={value}
             onChange={(e) => handleFieldChange(field.name, e.target.value)}
-            error={hasError}
-            helperText={errors[field.name]}
-            required={field.required}
-            sx={{ mb: 2 }}
             InputLabelProps={{ shrink: true }}
           />
         );
@@ -220,16 +270,10 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
       case 'mediumint':
         return (
           <TextField
-            key={field.name}
-            fullWidth
-            label={field.name}
+            {...commonTextFieldProps}
             type="number"
             value={value}
             onChange={(e) => handleFieldChange(field.name, e.target.value)}
-            error={hasError}
-            helperText={errors[field.name]}
-            required={field.required}
-            sx={{ mb: 2 }}
             inputProps={{ step: 1 }}
           />
         );
@@ -240,16 +284,10 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
       case 'numeric':
         return (
           <TextField
-            key={field.name}
-            fullWidth
-            label={field.name}
+            {...commonTextFieldProps}
             type="number"
             value={value}
             onChange={(e) => handleFieldChange(field.name, e.target.value)}
-            error={hasError}
-            helperText={errors[field.name]}
-            required={field.required}
-            sx={{ mb: 2 }}
             inputProps={{ step: 0.01 }}
           />
         );
@@ -257,21 +295,18 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
       default:
         return (
           <TextField
-            key={field.name}
-            fullWidth
-            label={field.name}
+            {...commonTextFieldProps}
             value={value}
             onChange={(e) => handleFieldChange(field.name, e.target.value)}
-            error={hasError}
-            helperText={errors[field.name]}
-            required={field.required}
-            sx={{ mb: 2 }}
             multiline={dataType === 'text' || dataType === 'longtext'}
             rows={dataType === 'text' || dataType === 'longtext' ? 3 : 1}
           />
         );
     }
-  };
+  }, [formData, errors, handleFieldChange]);
+
+  const dialogTitle = method === 'POST' ? 'Crear nuevo' : 'Actualizar';
+  const hasFields = entity?.fields && entity.fields.length > 0;
 
   return (
     <Dialog
@@ -282,20 +317,49 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
       PaperProps={{
         sx: {
           maxHeight: '80vh',
+          backgroundColor: '#ffffff !important',
+          backgroundImage: 'none !important',
+          border: 'none !important',
+          boxShadow: '0px 11px 15px -7px rgba(0,0,0,0.2), 0px 24px 38px 3px rgba(0,0,0,0.14), 0px 9px 46px 8px rgba(0,0,0,0.12) !important',
         }
       }}
+      BackdropProps={{
+        sx: {
+          backgroundColor: 'rgba(0, 0, 0, 0.5) !important',
+        }
+      }}
+      aria-labelledby="request-data-dialog-title"
+      aria-describedby="request-data-dialog-description"
     >
-      <DialogTitle>
-        <Typography variant="h6" component="div">
-          {method === 'POST' ? 'Crear nuevo' : 'Actualizar'} {entity?.name}
+      <DialogTitle
+        id="request-data-dialog-title"
+        sx={{
+          backgroundColor: '#ffffff !important',
+          color: 'rgba(0, 0, 0, 0.87) !important',
+          borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
+        }}
+      >
+        <Typography variant="h6" component="div" sx={{ color: 'rgba(0, 0, 0, 0.87) !important' }}>
+          {dialogTitle} {entity?.name}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography 
+          variant="body2" 
+          id="request-data-dialog-description"
+          sx={{ color: 'rgba(0, 0, 0, 0.6) !important', mt: 1 }}
+        >
           Complete los datos para enviar la solicitud {method}
         </Typography>
       </DialogTitle>
       
-      <DialogContent dividers sx={{ py: 3 }}>
-        {entity?.fields && entity.fields.length > 0 ? (
+      <DialogContent 
+        dividers 
+        sx={{ 
+          py: 3,
+          backgroundColor: '#ffffff !important',
+          color: 'rgba(0, 0, 0, 0.87) !important',
+        }}
+      >
+        {hasFields ? (
           <Box>
             {entity.fields.map((field, index) => (
               <Box key={field?.name || index}>
@@ -304,21 +368,55 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
             ))}
           </Box>
         ) : (
-          <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+          <Typography 
+            align="center" 
+            sx={{ 
+              py: 4,
+              color: 'rgba(0, 0, 0, 0.6) !important',
+            }}
+          >
             No hay campos configurados para esta entidad
           </Typography>
         )}
       </DialogContent>
       
-      <DialogActions sx={{ p: 3, gap: 1 }}>
-        <Button onClick={onClose} color="inherit">
+      <DialogActions 
+        sx={{ 
+          p: 3, 
+          gap: 1,
+          backgroundColor: '#ffffff !important',
+          borderTop: '1px solid rgba(0, 0, 0, 0.12)',
+        }}
+      >
+        <Button 
+          onClick={onClose} 
+          color="inherit"
+          sx={{
+            color: 'rgba(0, 0, 0, 0.87) !important',
+            backgroundColor: 'transparent !important',
+            '&:hover': {
+              backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
+            },
+          }}
+        >
           Cancelar
         </Button>
         <Button 
           onClick={handleSubmit} 
           variant="contained" 
           color="primary"
-          disabled={!entity?.fields?.length}
+          disabled={!hasFields}
+          sx={{
+            backgroundColor: '#1976d2 !important',
+            color: '#ffffff !important',
+            '&:hover': {
+              backgroundColor: '#1565c0 !important',
+            },
+            '&:disabled': {
+              backgroundColor: 'rgba(0, 0, 0, 0.12) !important',
+              color: 'rgba(0, 0, 0, 0.26) !important',
+            },
+          }}
         >
           Enviar {method}
         </Button>
@@ -326,5 +424,7 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
     </Dialog>
   );
 };
+
+RequestDataDialog.displayName = 'RequestDataDialog';
 
 export default RequestDataDialog;
