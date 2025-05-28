@@ -1,14 +1,12 @@
+/* Global imports and theme overrides */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-:root {
+/* Additional styles that complement the global design system */
+html {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -17,114 +15,84 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--primary-color);
   text-decoration: inherit;
+  transition: var(--transition-fast);
 }
 a:hover {
-  color: #535bf2;
+  color: var(--primary-light);
 }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  width: 100%;
-}
-
+/* Complement the body styles from global.css */
 body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  background: linear-gradient(135deg, 
-    #667eea 0%, 
-    #764ba2 25%, 
-    #f093fb 50%, 
-    #f5576c 75%, 
-    #4facfe 100%);
-  position: relative;
+  /* Additional body styles that work with the global background */
   overflow-x: hidden;
 }
 
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: 
-    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(120, 219, 226, 0.3) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: -1;
+/* Additional root container styles that complement global.css */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
 }
 
-/* Background animation removed */
-
-h1 {
+/* Typography enhancements */
+.app-title {
   font-size: 3.2em;
   line-height: 1.1;
+  color: var(--text-color);
+  font-weight: 700;
 }
 
-button {
-  border-radius: 8px;
+/* Additional button enhancements */
+.app-button {
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--surface-color);
+  color: var(--text-color);
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: var(--transition-fast);
 }
-button:hover {
-  border-color: #646cff;
+.app-button:hover {
+  border-color: var(--primary-color);
+  background-color: var(--primary-color);
+  color: white;
 }
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+.app-button:focus,
+.app-button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
 }
 
-#root {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
+/* Remove conflicting light theme overrides - using design system instead */
 
-/* Fade animations removed */
+/* Utility classes */
 .fade-in {
   opacity: 1;
 }
 
-/* Card hover effects removed */
 .hover-card {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
+  transition: var(--transition-fast);
 }
 
-/* Toast notifications styling */
+/* Toast notifications */
 .toast-notification {
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-weight: 500;
 }
 
-/* Method tags styling */
+/* Method tags */
 .method-tag {
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   font-weight: 600;
   display: inline-block;
@@ -153,18 +121,27 @@ button:focus-visible {
 
 /* JSON styling */
 pre.json-view {
-  background-color: #f8f8f8;
-  padding: 16px;
-  border-radius: 8px;
+  background-color: var(--surface-color);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
   overflow-x: auto;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.875rem;
   line-height: 1.6;
+  border: 1px solid var(--border-color);
 }
 
-/* Media Queries */
+/* Responsive utilities for mobile */
 @media (max-width: 768px) {
   .hide-on-mobile {
     display: none !important;
+  }
+  
+  .app-container {
+    padding: var(--spacing-md);
+  }
+  
+  .app-title {
+    font-size: 2.5em;
   }
 }
