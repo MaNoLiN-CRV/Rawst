@@ -39,13 +39,29 @@ export const testDatabaseConnection = async (): Promise<string> => {
  * Handles path parameters in URL paths
  */
 export const handlePathParameters = (urlPath: string): string => {
-  if (urlPath.includes('{id}')) {
-    const idValue = prompt('Enter ID value for path parameter {id}:', '1');
-    if (idValue !== null && idValue.trim() !== '') {
-      return urlPath.replace('{id}', encodeURIComponent(idValue));
+  // Find all path parameters in the format {paramName}
+  const parameterPattern = /\{([^}]+)\}/g;
+  let processedPath = urlPath;
+  let match;
+  
+  // Process each parameter found
+  while ((match = parameterPattern.exec(urlPath)) !== null) {
+    const fullMatch = match[0]; // e.g., "{id}"
+    const paramName = match[1]; // e.g., "id"
+    
+    // Prompt user for the parameter value
+    const defaultValue = paramName === 'id' ? '1' : '';
+    const paramValue = prompt(
+      `Enter value for path parameter {${paramName}}:`, 
+      defaultValue
+    );
+    
+    if (paramValue !== null && paramValue.trim() !== '') {
+      processedPath = processedPath.replace(fullMatch, encodeURIComponent(paramValue.trim()));
     } else {
-      throw new Error('ID value is required for this endpoint and was not provided.');
+      throw new Error(`Value for parameter {${paramName}} is required for this endpoint and was not provided.`);
     }
   }
-  return urlPath;
+  
+  return processedPath;
 };

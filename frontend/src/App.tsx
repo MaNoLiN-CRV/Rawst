@@ -504,7 +504,7 @@ function AppContent() {
       api_prefix: "/api",
       server: {
         host: "localhost",
-        port: 8080,
+        port: 8000,
         request_timeout_seconds: 30,
         max_payload_size_mb: 10,
         rate_limiting: {

@@ -15,6 +15,7 @@ import { RequestPanelProps } from './types';
 
 /**
  * Request panel component for API testing
+ * Enhanced with proper styling and accessibility
  */
 const RequestPanel: React.FC<RequestPanelProps> = React.memo(({
   selectedEndpoint,
@@ -27,7 +28,7 @@ const RequestPanel: React.FC<RequestPanelProps> = React.memo(({
   getMethodColor
 }) => {
   const theme = useTheme();
-  const needsRequestBody = selectedEndpoint.method === 'POST' || selectedEndpoint.method === 'PUT';
+  const needsRequestBody = selectedEndpoint.method === 'POST' || selectedEndpoint.method === 'PUT' || selectedEndpoint.method === 'PATCH';
 
   return (
     <>
@@ -162,18 +163,26 @@ const RequestPanel: React.FC<RequestPanelProps> = React.memo(({
             backgroundColor: getMethodColor(selectedEndpoint.method),
             color: theme.palette.getContrastText(getMethodColor(selectedEndpoint.method)),
             borderRadius: 2,
+            opacity: 1,
             '&:hover': {
               backgroundColor: getMethodColor(selectedEndpoint.method),
               opacity: 0.9,
             },
             '&:disabled': {
-              backgroundColor: 'rgba(0, 0, 0, 0.12)',
-              color: 'rgba(0, 0, 0, 0.26)',
+              backgroundColor: '#ffffff',
+              color: '#000000',
+              opacity: 1,
+              border: '1px solid rgba(0, 0, 0, 0.2)',
             }
           }}
           aria-label={`Send ${selectedEndpoint.method} request`}
         >
-          {isSendingRequest ? 'Sending...' : 'Send Request'}
+          {isSendingRequest 
+            ? 'Sending...' 
+            : needsRequestBody 
+              ? `Configurar ${selectedEndpoint.method}` 
+              : `Enviar ${selectedEndpoint.method}`
+          }
         </Button>
       </Box>
 

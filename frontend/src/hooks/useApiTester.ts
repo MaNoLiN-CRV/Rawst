@@ -53,6 +53,9 @@ export const useApiTester = ({
   const [isSendingRequest, setIsSendingRequest] = useState<boolean>(false);
   const [tabValue, setTabValue] = useState<number>(0);
 
+  // Add new state for the dialog
+  const [showRequestDialog, setShowRequestDialog] = useState<boolean>(false);
+
   // Effect to update request body when endpoint changes
   useEffect(() => {
     if (selectedEndpoint) {
@@ -148,62 +151,84 @@ export const useApiTester = ({
    * Makes an API request with proper error handling
    */
   const handleSendRequest = useCallback(async (): Promise<void> => {
-    if (!selectedEndpoint) {
-      setError("No endpoint selected.");
-      return;
-    }
-
-    setIsSendingRequest(true);
-    setError(null);
-    setResponse("");
+    if (!selectedEndpoint) return;
 
     try {
-      let urlPath = selectedEndpoint.path;
+      setIsSendingRequest(true);
+      setResponse('');
+      setTabValue(TAB_INDICES.RESPONSE);
+
+      let processedUrl = apiUrl + selectedEndpoint.path;
 
       // Handle path parameters
-      urlPath = handlePathParameters(urlPath);
-
-      const fullUrl = `${apiUrl}${urlPath}`;
-      const requestParams = {
-        url: fullUrl,
-        method: selectedEndpoint.method,
-        body: METHODS_WITH_BODY.includes(
-          selectedEndpoint.method as HttpMethodWithBody
-        )
-          ? requestBody
-          : null,
-      };
-
-      const result = await makeApiRequest(requestParams);
-      setResponse(result);
-      setTabValue(TAB_INDICES.RESPONSE);
-
-      // Refresh metrics if monitoring tab is active
-      if (monitoringTabValue === 0) {
-        fetchServerMetrics();
+      try {
+        processedUrl = handlePathParameters(processedUrl);
+      } catch (paramError) {
+        const errorMessage = paramError instanceof Error ? paramError.message : String(paramError);
+        setResponse(`Parameter Error: ${errorMessage}`);
+        return;
       }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setResponse(
-        JSON.stringify(
-          { error: "API Request Failed", details: errorMessage },
-          null,
-          2
-        )
-      );
-      setError(`API Request Failed: ${errorMessage}`);
-      setTabValue(TAB_INDICES.RESPONSE);
+
+      // For POST/PUT/PATCH methods, show dialog to collect data
+      if (METHODS_WITH_BODY.includes(selectedEndpoint.method as HttpMethodWithBody)) {
+        // Instead of sending immediately, show the dialog
+        setShowRequestDialog(true);
+        return;
+      }
+
+      // For GET/DELETE, send immediately
+      const result = await makeApiRequest({
+        url: processedUrl,
+        method: selectedEndpoint.method,
+        body: null,
+      });
+
+      setResponse(result);
+    } catch (error) {
+      console.error('Error sending request:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setResponse(`Request Error: ${errorMessage}`);
     } finally {
       setIsSendingRequest(false);
     }
-  }, [
-    selectedEndpoint,
-    apiUrl,
-    requestBody,
-    fetchServerMetrics,
-    setError,
-    monitoringTabValue,
-  ]);
+  }, [selectedEndpoint, apiUrl]);
+
+  // Add new function to handle dialog submission
+  const handleDialogSubmit = useCallback(async (formData: Record<string, any>): Promise<void> => {
+    if (!selectedEndpoint) return;
+
+    try {
+      setIsSendingRequest(true);
+      setShowRequestDialog(false);
+      setTabValue(TAB_INDICES.RESPONSE);
+
+      let processedUrl = apiUrl + selectedEndpoint.path;
+
+      // Handle path parameters
+      try {
+        processedUrl = handlePathParameters(processedUrl);
+      } catch (paramError) {
+        const errorMessage = paramError instanceof Error ? paramError.message : String(paramError);
+        setResponse(`Parameter Error: ${errorMessage}`);
+        return;
+      }
+
+      // Send request with form data
+      const result = await makeApiRequest({
+        url: processedUrl,
+        method: selectedEndpoint.method,
+        body: JSON.stringify(formData),
+      });
+
+      setResponse(result);
+    } catch (error) {
+      console.error('Error sending request:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setResponse(`Request Error: ${errorMessage}`);
+    } finally {
+      setIsSendingRequest(false);
+    }
+  }, [selectedEndpoint, apiUrl]);
 
   /**
    * Tests database connection with error handling
@@ -225,6 +250,7 @@ export const useApiTester = ({
     response,
     isSendingRequest,
     tabValue,
+    showRequestDialog,
 
     // Computed values
     currentFullUrl,
@@ -237,5 +263,7 @@ export const useApiTester = ({
     handleRequestBodyChange,
     handleSendRequest,
     handleTestDatabaseConnection,
+    setShowRequestDialog,
+    handleDialogSubmit,
   };
 };

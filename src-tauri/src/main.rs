@@ -328,6 +328,7 @@ async fn test_api_endpoint(url: String, method: String, body: Option<String>) ->
         "GET" => client.get(&url),
         "POST" => client.post(&url),
         "PUT" => client.put(&url),
+        "PATCH" => client.patch(&url),
         "DELETE" => client.delete(&url),
         _ => return Err(format!("Unsupported HTTP method: {}", method)),
     };
@@ -338,7 +339,7 @@ async fn test_api_endpoint(url: String, method: String, body: Option<String>) ->
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         request_builder = request_builder.headers(headers);
         
-        if method.to_uppercase() == "POST" || method.to_uppercase() == "PUT" {
+        if method.to_uppercase() == "POST" || method.to_uppercase() == "PUT" || method.to_uppercase() == "PATCH" {
             request_builder = request_builder.body(body_content.clone());
         }
     }

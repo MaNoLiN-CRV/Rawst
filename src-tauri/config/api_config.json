@@ -57,6 +57,11 @@
           "required": true
         },
         {
+          "name": "nom_emp",
+          "data_type": "String",
+          "required": true
+        },
+        {
           "name": "id_depto",
           "data_type": "String",
           "required": true
@@ -81,7 +86,7 @@
         {
           "name": "sueldo_bruto_anual",
           "data_type": "String",
-          "required": false
+          "required": true
         }
       ],
       "authentication": false
@@ -107,6 +112,50 @@
         },
         {
           "name": "nom_proy",
+          "data_type": "String",
+          "required": true
+        }
+      ],
+      "authentication": false
+    },
+    {
+      "name": "proyecto_sede",
+      "table_name": "proyecto_sede",
+      "fields": [
+        {
+          "name": "id_proy",
+          "data_type": "String",
+          "required": true
+        },
+        {
+          "name": "id_sede",
+          "data_type": "String",
+          "required": true
+        },
+        {
+          "name": "f_inicio",
+          "data_type": "String",
+          "required": true
+        },
+        {
+          "name": "f_fin",
+          "data_type": "String",
+          "required": true
+        }
+      ],
+      "authentication": false
+    },
+    {
+      "name": "sede",
+      "table_name": "sede",
+      "fields": [
+        {
+          "name": "id_sede",
+          "data_type": "String",
+          "required": true
+        },
+        {
+          "name": "nom_sede",
           "data_type": "String",
           "required": true
         }

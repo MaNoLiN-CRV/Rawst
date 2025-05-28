@@ -5,7 +5,8 @@ import { SelectChangeEvent } from '@mui/material';
  */
 export interface EntityField {
   name: string;
-  data_type: 'String' | 'Integer' | 'Number' | 'Boolean' | 'Date' | string;
+  data_type:  string;
+  required?: boolean;
 }
 
 /**
@@ -113,7 +114,7 @@ export interface ApiRequestParams {
 /**
  * Type for HTTP methods that require a request body
  */
-export type HttpMethodWithBody = 'POST' | 'PUT';
+export type HttpMethodWithBody = 'POST' | 'PUT' | 'PATCH';
 
 /**
  * Props for the EntitySelector component

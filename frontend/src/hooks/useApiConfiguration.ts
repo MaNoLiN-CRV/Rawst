@@ -62,12 +62,53 @@ export const useApiConfiguration = (serverStatus: ServerStatus) => {
     entity.fields.forEach((field) => {
       if (!field || !field.name) return;
       let defaultValue: any;
-      switch (field.data_type) {
-        case 'String': defaultValue = `Sample ${field.name}`; break;
-        case 'Integer': case 'Number': defaultValue = 0; break;
-        case 'Boolean': defaultValue = false; break;
-        case 'Date': defaultValue = new Date().toISOString().split('T')[0]; break;
-        default: defaultValue = null;
+      // Handle different possible formats of data_type
+      const dataType = field.data_type?.toLowerCase();
+      switch (dataType) {
+        case 'string':
+          defaultValue = `Sample ${field.name}`;
+          break;
+        case 'integer':
+        case 'number':
+        case 'int':
+        case 'bigint':
+        case 'smallint':
+        case 'tinyint':
+        case 'mediumint':
+          defaultValue = 1;
+          break;
+        case 'float':
+        case 'double':
+        case 'decimal':
+        case 'numeric':
+          defaultValue = 1.0;
+          break;
+        case 'boolean':
+        case 'bool':
+        case 'tinyint(1)':
+          defaultValue = false;
+          break;
+        case 'date':
+          defaultValue = new Date().toISOString().split('T')[0];
+          break;
+        case 'datetime':
+        case 'timestamp':
+          defaultValue = new Date().toISOString();
+          break;
+        case 'json':
+          defaultValue = {};
+          break;
+        default:
+          // For unknown types, try to infer from field name
+          if (field.name.toLowerCase().includes('id') || field.name.toLowerCase().includes('count')) {
+            defaultValue = 1;
+          } else if (field.name.toLowerCase().includes('date') || field.name.toLowerCase().includes('time')) {
+            defaultValue = new Date().toISOString().split('T')[0];
+          } else if (field.name.toLowerCase().includes('price') || field.name.toLowerCase().includes('amount')) {
+            defaultValue = 1.0;
+          } else {
+            defaultValue = `Sample ${field.name}`;
+          }
       }
       sampleBody[field.name] = defaultValue;
     });

@@ -12,6 +12,7 @@ import ServerErrorStates from './api-tester/ServerErrorStates';
 import ApiTestingInterface from './api-tester/ApiTestingInterface';
 import EntitySelector from './api-tester/EntitySelector';
 import ServerControls from './api-tester/ServerControls';
+import RequestDataDialog from './api-tester/RequestDataDialog';
 
 /**
  * Main ApiTester component - Refactored for better modularity
@@ -69,7 +70,10 @@ const ApiTester: React.FC = () => {
     handleTabChange,
     handleRequestBodyChange,
     handleSendRequest,
-    handleTestDatabaseConnection
+    handleTestDatabaseConnection,
+    showRequestDialog,
+    setShowRequestDialog,
+    handleDialogSubmit,
   } = useApiTester({
     entities,
     selectedEntityName,
@@ -196,6 +200,15 @@ const ApiTester: React.FC = () => {
             )}
           </Box>
         )}
+
+        {/* Add the Request Data Dialog */}
+        <RequestDataDialog
+          open={showRequestDialog}
+          entity={entities.find(e => e.name === selectedEntityName)}
+          method={selectedEndpoint?.method || 'POST'}
+          onClose={() => setShowRequestDialog(false)}
+          onSubmit={handleDialogSubmit}
+        />
       </Box>
     </Box>
   );

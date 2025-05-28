@@ -3,7 +3,7 @@ import { HttpMethodWithBody } from '../components/api-tester/types';
 /**
  * HTTP methods that require a request body
  */
-export const METHODS_WITH_BODY: HttpMethodWithBody[] = ['POST', 'PUT'];
+export const METHODS_WITH_BODY: HttpMethodWithBody[] = ['POST', 'PUT', 'PATCH'];
 
 /**
  * Default HTTP method colors for UI display
