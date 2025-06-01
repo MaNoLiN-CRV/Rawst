@@ -13,7 +13,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::Manager;
+
 
 // Import the main library
 use rawst::{
@@ -1022,7 +1022,6 @@ async fn test_database_connection() -> Result<String, String> {
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             get_mariadb_tables,
             get_mariadb_table_columns,
@@ -1036,7 +1035,6 @@ fn main() {
             get_server_logs,          // New command
             restart_api_server,       // New command
             test_database_connection, // New command
-            open_external_url         // New command for opening URLs
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

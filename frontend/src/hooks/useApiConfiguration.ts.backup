@@ -1,0 +1,321 @@
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { 
+    ApiEntity, 
+    EndpointConfig, 
+    ApiConfiguration, 
+    ServerStatus,
+    EntityField
+} from '../components/api-tester/types'; 
+
+// Type definitions for better type safety
+interface UseApiConfigurationState {
+  entities: ApiEntity[];
+  selectedEntityName: string;
+  selectedEndpoint: EndpointConfig | null;
+  endpoints: EndpointConfig[];
+  isLoadingConfig: boolean;
+  error: string | null;
+  apiUrl: string;
+}
+
+interface UseApiConfigurationActions {
+  createEndpointsForEntity: (entity: ApiEntity) => EndpointConfig[];
+  generateSampleBody: (entity: ApiEntity | undefined) => string;
+  fetchApiConfiguration: () => Promise<void>;
+  manualRefreshConfig: () => Promise<void>;
+  setSelectedEntityName: React.Dispatch<React.SetStateAction<string>>;
+  setSelectedEndpoint: React.Dispatch<React.SetStateAction<EndpointConfig | null>>;
+  setEndpoints: React.Dispatch<React.SetStateAction<EndpointConfig[]>>;
+  setError: React.Dispatch<React.SetStateAction<string | null>>;
+}
+
+export type UseApiConfigurationReturn = UseApiConfigurationState & UseApiConfigurationActions;
+
+// Constants for better maintainability
+const DEFAULT_API_URL = 'http://localhost:8000/api';
+const CONFIG_FETCH_TIMEOUT = 10000;
+const SERVER_READY_DELAY = 1000;
+
+/**
+ * Data type mapping for sample value generation
+ */
+const DATA_TYPE_DEFAULTS: Record<string, unknown> = {
+  string: 'Sample Value',
+  text: 'Sample Text',
+  integer: 1,
+  number: 1,
+  int: 1,
+  bigint: 1,
+  smallint: 1,
+  tinyint: 1,
+  mediumint: 1,
+  float: 1.0,
+  double: 1.0,
+  decimal: 1.0,
+  numeric: 1.0,
+  boolean: false,
+  bool: false,
+  'tinyint(1)': false,
+  date: () => new Date().toISOString().split('T')[0],
+  datetime: () => new Date().toISOString(),
+  timestamp: () => new Date().toISOString(),
+  json: {},
+} as const;
+
+/**
+ * Generates a default sample value for a field based on its data type
+ * @param field - The entity field to generate a sample value for
+ * @returns A sample value appropriate for the field type
+ */
+const generateFieldSampleValue = (field: EntityField): unknown => {
+  const dataType = field.data_type?.toLowerCase();
+  
+  // Check predefined defaults first
+  if (dataType && dataType in DATA_TYPE_DEFAULTS) {
+    const defaultValue = DATA_TYPE_DEFAULTS[dataType];
+    return typeof defaultValue === 'function' ? defaultValue() : defaultValue;
+  }
+  
+  // Field name-based inference for unknown types
+  const fieldName = field.name.toLowerCase();
+  
+  if (fieldName.includes('id') || fieldName.includes('count')) {
+    return 1;
+  }
+  
+  if (fieldName.includes('date') || fieldName.includes('time')) {
+    return new Date().toISOString().split('T')[0];
+  }
+  
+  if (fieldName.includes('price') || fieldName.includes('amount')) {
+    return 1.0;
+  }
+  
+  if (fieldName.includes('email')) {
+    return 'example@email.com';
+  }
+  
+  if (fieldName.includes('phone')) {
+    return '+1234567890';
+  }
+  
+  if (fieldName.includes('url') || fieldName.includes('link')) {
+    return 'https://example.com';
+  }
+  
+  // Default to string with field name
+  return `Sample ${field.name}`;
+};
+
+/**
+ * Custom hook to manage API configuration and endpoints with improved error handling,
+ * performance optimization, and type safety.
+ * 
+ * @param serverStatus - Current status of the server
+ * @returns Object containing state and actions for API configuration management
+ */
+export const useApiConfiguration = (serverStatus: ServerStatus): UseApiConfigurationReturn => {
+  // State management with proper initial values
+  const [entities, setEntities] = useState<ApiEntity[]>([]);
+  const [selectedEntityName, setSelectedEntityName] = useState<string>('');
+  const [selectedEndpoint, setSelectedEndpoint] = useState<EndpointConfig | null>(null);
+  const [endpoints, setEndpoints] = useState<EndpointConfig[]>([]);
+  const [isLoadingConfig, setIsLoadingConfig] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [apiUrl, setApiUrl] = useState<string>(DEFAULT_API_URL);
+  
+  // Refs for preventing race conditions
+  const isFetchingRef = useRef<boolean>(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const createEndpointsForEntity = useCallback((entity: ApiEntity): EndpointConfig[] => {
+    const entityName = entity.name;
+    let newEndpoints: EndpointConfig[] = [];
+
+    if (!entity.endpoints || Object.keys(entity.endpoints).length === 0) {
+      newEndpoints = [
+        { path: `/${entityName}`, method: 'GET', description: `Get all ${entityName}` },
+        { path: `/${entityName}/{id}`, method: 'GET', description: `Get ${entityName} by ID` },
+        { path: `/${entityName}`, method: 'POST', description: `Create new ${entityName}` },
+        { path: `/${entityName}/{id}`, method: 'PUT', description: `Update ${entityName}` },
+        { path: `/${entityName}/{id}`, method: 'DELETE', description: `Delete ${entityName}` },
+      ];
+    } else {
+      const { generate_list, generate_read, generate_create, generate_update, generate_delete } = entity.endpoints;
+      if (generate_list) newEndpoints.push({ path: `/${entityName}`, method: 'GET', description: `Get all ${entityName}` });
+      if (generate_read) newEndpoints.push({ path: `/${entityName}/{id}`, method: 'GET', description: `Get ${entityName} by ID` });
+      if (generate_create) newEndpoints.push({ path: `/${entityName}`, method: 'POST', description: `Create new ${entityName}` });
+      if (generate_update) newEndpoints.push({ path: `/${entityName}/{id}`, method: 'PUT', description: `Update ${entityName}` });
+      if (generate_delete) newEndpoints.push({ path: `/${entityName}/{id}`, method: 'DELETE', description: `Delete ${entityName}` });
+      }
+    }
+    return newEndpoints;
+  }, []));
+
+
+  const generateSampleBody = useCallback((entity: ApiEntity | undefined): string => {
+    if (!entity || !entity.fields || entity.fields.length === 0) {
+      return JSON.stringify({ id: 0, sample_field: "sample_value" }, null, 2);
+    }
+    const sampleBody: { [key: string]: any } = {};
+    entity.fields.forEach((field) => {
+      if (!field || !field.name) return;
+      let defaultValue: any;
+      // Handle different possible formats of data_type
+      const dataType = field.data_type?.toLowerCase();
+      switch (dataType) {
+        case 'string':
+          defaultValue = `Sample ${field.name}`;
+          break;
+        case 'integer':
+        case 'number':
+        case 'int':
+        case 'bigint':
+        case 'smallint':
+        case 'tinyint':
+        case 'mediumint':
+          defaultValue = 1;
+          break;
+        case 'float':
+        case 'double':
+        case 'decimal':
+        case 'numeric':
+          defaultValue = 1.0;
+          break;
+        case 'boolean':
+        case 'bool':
+        case 'tinyint(1)':
+          defaultValue = false;
+          break;
+        case 'date':
+          defaultValue = new Date().toISOString().split('T')[0];
+          break;
+        case 'datetime':
+        case 'timestamp':
+          defaultValue = new Date().toISOString();
+          break;
+        case 'json':
+          defaultValue = {};
+          break;
+        default:
+          // For unknown types, try to infer from field name
+          if (field.name.toLowerCase().includes('id') || field.name.toLowerCase().includes('count')) {
+            defaultValue = 1;
+          } else if (field.name.toLowerCase().includes('date') || field.name.toLowerCase().includes('time')) {
+            defaultValue = new Date().toISOString().split('T')[0];
+          } else if (field.name.toLowerCase().includes('price') || field.name.toLowerCase().includes('amount')) {
+            defaultValue = 1.0;
+          } else {
+            defaultValue = `Sample ${field.name}`;
+          }
+      }
+      sampleBody[field.name] = defaultValue;
+    });
+    return JSON.stringify(sampleBody, null, 2);
+  }, []);
+
+  const fetchApiConfiguration = useCallback(async (): Promise<void> => {
+    // Prevent multiple simultaneous fetches
+    if (isFetchingRef.current) {
+      console.log('Configuration fetch already in progress, skipping...');
+      return;
+    }
+
+    try {
+      isFetchingRef.current = true;
+      setIsLoadingConfig(true);
+      setError(null);
+      
+      console.log('Starting configuration fetch...');
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Configuration fetch timeout')), 10000)
+      );
+      
+      const configPromise = invoke<ApiConfiguration | null>('get_current_configuration');
+      
+      const config = await Promise.race([configPromise, timeoutPromise]);
+      
+      console.log('Configuration fetch completed:', config);
+      
+      if (config && config.entities_basic && config.entities_basic.length > 0) {
+        setEntities(config.entities_basic);
+        const firstEntity = config.entities_basic[0];
+        if (firstEntity?.name) {
+          setSelectedEntityName(firstEntity.name);
+          const newEndpoints = createEndpointsForEntity(firstEntity);
+          setEndpoints(newEndpoints);
+          if (newEndpoints.length > 0) {
+            setSelectedEndpoint(newEndpoints[0]);
+          } else {
+            setSelectedEndpoint(null);
+          }
+        }
+        if (config.server && config.server.host && config.server.port) {
+          setApiUrl(`http://${config.server.host}:${config.server.port}${config.api_prefix || '/api'}`);
+        }
+      } else {
+        setEntities([]);
+        setSelectedEntityName('');
+        setEndpoints([]);
+        setSelectedEndpoint(null);
+        setError("No API entities found in configuration.");
+      }
+    } catch (err: unknown) {
+      console.error('Error fetching API configuration:', err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage || 'Unknown error loading API configuration');
+      // Reset entities state on error
+      setEntities([]);
+      setSelectedEntityName('');
+      setEndpoints([]);
+      setSelectedEndpoint(null);
+    } finally {
+      setIsLoadingConfig(false);
+      isFetchingRef.current = false;
+    }
+  }, [createEndpointsForEntity]);
+
+  useEffect(() => {
+    // Always try to fetch configuration on mount, regardless of server status
+    fetchApiConfiguration();
+    
+    // Also fetch when server becomes running
+    if (serverStatus === 'running') {
+      // Small delay to ensure server is fully ready
+      const timer = setTimeout(fetchApiConfiguration, 1000);
+      return () => clearTimeout(timer);
+    }
+    
+    // Clear loading state if server has error or is stopped
+    if (serverStatus === 'error' || serverStatus === 'stopped') {
+      setIsLoadingConfig(false);
+    }
+  }, [serverStatus]); // Removed fetchApiConfiguration from dependencies to prevent infinite loop
+
+  const manualRefreshConfig = useCallback(async (): Promise<void> => {
+    console.log('Manual refresh triggered');
+    isFetchingRef.current = false; // Reset the flag to allow manual refresh
+    await fetchApiConfiguration();
+  }, [fetchApiConfiguration]);
+
+  return {
+    entities,
+    selectedEntityName,
+    selectedEndpoint,
+    endpoints,
+    isLoadingConfig,
+    error,
+    apiUrl,
+    createEndpointsForEntity,
+    generateSampleBody,
+    fetchApiConfiguration,
+    manualRefreshConfig,
+    setSelectedEntityName,
+    setSelectedEndpoint,
+    setEndpoints,
+    setError
+  };
+};

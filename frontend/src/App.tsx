@@ -237,8 +237,7 @@ function AppContent() {
               generate_read: entity.endpoints?.generate_read !== false,
               generate_update: entity.endpoints?.generate_update !== false,
               generate_delete: entity.endpoints?.generate_delete !== false,
-              generate_list: entity.endpoints?.generate_list !== false,
-              custom_routes: entity.endpoints?.custom_routes || []
+              generate_list: entity.endpoints?.generate_list !== false
             },
             authentication: entity.authentication || false,
             authorization: {
@@ -286,8 +285,7 @@ function AppContent() {
               generate_read: entity.endpoints?.generate_read !== false,
               generate_update: entity.endpoints?.generate_update !== false,
               generate_delete: entity.endpoints?.generate_delete !== false,
-              generate_list: entity.endpoints?.generate_list !== false,
-              custom_routes: entity.endpoints?.custom_routes || []
+              generate_list: entity.endpoints?.generate_list !== false
             },
             authentication: entity.authentication || false,
             authorization: {
@@ -396,8 +394,7 @@ function AppContent() {
             generate_read: true,
             generate_update: true,
             generate_delete: true,
-            generate_list: true,
-            custom_routes: []
+            generate_list: true
           },
           authentication: false,
           authorization: {
@@ -458,8 +455,7 @@ function AppContent() {
             generate_read: true,
             generate_update: true,
             generate_delete: true,
-            generate_list: true,
-            custom_routes: []
+            generate_list: true
           },
           authentication: false,
           authorization: {
@@ -544,12 +540,7 @@ function AppContent() {
           generate_read: cfg.endpoints.generate_read,
           generate_update: cfg.endpoints.generate_update,
           generate_delete: cfg.endpoints.generate_delete,
-          generate_list: cfg.endpoints.generate_list,
-          custom_routes: cfg.endpoints.custom_routes.map(route => ({
-            path: route.path,
-            method: route.method,
-            handler: route.handler
-          }))
+          generate_list: cfg.endpoints.generate_list
         },
         authentication: cfg.authentication,
         authorization: {

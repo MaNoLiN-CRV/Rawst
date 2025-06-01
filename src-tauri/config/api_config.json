@@ -31,7 +31,7 @@
       "fields": [
         {
           "name": "id_depto",
-          "data_type": "String",
+          "data_type": "Integer",
           "required": true
         },
         {
@@ -41,28 +41,6 @@
         },
         {
           "name": "id_sede",
-          "data_type": "String",
-          "required": true
-        }
-      ],
-      "authentication": false
-    },
-    {
-      "name": "empleado",
-      "table_name": "empleado",
-      "fields": [
-        {
-          "name": "dni",
-          "data_type": "String",
-          "required": true
-        },
-        {
-          "name": "nom_emp",
-          "data_type": "String",
-          "required": true
-        },
-        {
-          "name": "id_depto",
           "data_type": "String",
           "required": true
         }
@@ -97,7 +75,7 @@
       "fields": [
         {
           "name": "id_proy",
-          "data_type": "String",
+          "data_type": "Integer",
           "required": true
         },
         {
@@ -119,26 +97,16 @@
       "authentication": false
     },
     {
-      "name": "proyecto_sede",
-      "table_name": "proyecto_sede",
+      "name": "sede",
+      "table_name": "sede",
       "fields": [
         {
-          "name": "id_proy",
-          "data_type": "String",
-          "required": true
-        },
-        {
           "name": "id_sede",
-          "data_type": "String",
+          "data_type": "Integer",
           "required": true
         },
         {
-          "name": "f_inicio",
-          "data_type": "String",
-          "required": true
-        },
-        {
-          "name": "f_fin",
+          "name": "nom_sede",
           "data_type": "String",
           "required": true
         }
@@ -146,17 +114,22 @@
       "authentication": false
     },
     {
-      "name": "sede",
-      "table_name": "sede",
+      "name": "empleado",
+      "table_name": "empleado",
       "fields": [
         {
-          "name": "id_sede",
+          "name": "dni",
           "data_type": "String",
           "required": true
         },
         {
-          "name": "nom_sede",
+          "name": "nom_emp",
           "data_type": "String",
+          "required": true
+        },
+        {
+          "name": "id_depto",
+          "data_type": "Integer",
           "required": true
         }
       ],

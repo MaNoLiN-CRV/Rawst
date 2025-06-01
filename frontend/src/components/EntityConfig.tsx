@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Box, 
   Typography, 
-  Checkbox, 
+  Checkbox,
   FormGroup, 
   FormControlLabel, 
   Divider, 
@@ -12,22 +12,10 @@ import {
   MenuItem,
   InputLabel,
   FormControl,
-  TextField,
-  Button,
-  IconButton,
   Grid
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
 
 type DataType = 'String' | 'Integer' | 'Float' | 'Boolean' | 'Date' | 'DateTime' | 'Binary' | 'JSON';
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-
-interface CustomRoute {
-  path: string;
-  method: HttpMethod;
-  handler: string;
-}
 
 export interface EndpointConfig {
   generate_create: boolean;
@@ -35,7 +23,6 @@ export interface EndpointConfig {
   generate_update: boolean;
   generate_delete: boolean;
   generate_list: boolean;
-  custom_routes: CustomRoute[];
 }
 
 type EndpointKey = 'generate_create' | 'generate_read' | 'generate_update' | 'generate_delete' | 'generate_list';
@@ -103,11 +90,11 @@ interface Props {
 }
 
 const endpointTypes = [
-  { id: 'list', label: 'List All', defaultPath: '/', method: 'GET' as HttpMethod },
-  { id: 'get', label: 'Get One', defaultPath: '/:id', method: 'GET' as HttpMethod },
-  { id: 'create', label: 'Create', defaultPath: '/', method: 'POST' as HttpMethod },
-  { id: 'update', label: 'Update', defaultPath: '/:id', method: 'PUT' as HttpMethod },
-  { id: 'delete', label: 'Delete', defaultPath: '/:id', method: 'DELETE' as HttpMethod },
+  { id: 'list', label: 'List All', defaultPath: '/', method: 'GET' },
+  { id: 'get', label: 'Get One', defaultPath: '/:id', method: 'GET' },
+  { id: 'create', label: 'Create', defaultPath: '/', method: 'POST' },
+  { id: 'update', label: 'Update', defaultPath: '/:id', method: 'PUT' },
+  { id: 'delete', label: 'Delete', defaultPath: '/:id', method: 'DELETE' },
 ] as const;
 
 const dataTypes: DataType[] = [
@@ -130,8 +117,7 @@ const defaultEntityConfig = (table: string): EntityFieldConfig => ({
     generate_read: false,
     generate_update: false,
     generate_delete: false,
-    generate_list: false,
-    custom_routes: []
+    generate_list: false
   },
   authentication: false,
   authorization: {
@@ -149,7 +135,6 @@ const defaultEntityConfig = (table: string): EntityFieldConfig => ({
 });
 
 const EntityConfig: React.FC<Props> = ({ entities, config, onChange }) => {
-  const [newCustomRoute, setNewCustomRoute] = useState<{ [table: string]: Partial<CustomRoute> }>({});
   const [initialized, setInitialized] = useState(false);
   const initializedRef = useRef(false);
 
@@ -196,8 +181,7 @@ const EntityConfig: React.FC<Props> = ({ entities, config, onChange }) => {
           generate_read: true,
           generate_update: true,
           generate_delete: true,
-          generate_list: true,
-          custom_routes: []
+          generate_list: true
         },
         authentication: false,
         authorization: {
@@ -264,8 +248,7 @@ const EntityConfig: React.FC<Props> = ({ entities, config, onChange }) => {
               generate_read: true,
               generate_update: true,
               generate_delete: true,
-              generate_list: true,
-              custom_routes: []
+              generate_list: true
             },
             authentication: false,
             authorization: {
@@ -357,54 +340,7 @@ const EntityConfig: React.FC<Props> = ({ entities, config, onChange }) => {
     });
   };
 
-  const handleCustomRouteChange = (table: string, field: keyof CustomRoute, value: string) => {
-    setNewCustomRoute(prev => ({
-      ...prev,
-      [table]: {
-        ...prev[table],
-        [field]: value
-      }
-    }));
-  };
 
-  const handleAddCustomRoute = (table: string) => {
-    const currentConfig = config[table];
-    if (!currentConfig || !newCustomRoute[table]?.path || !newCustomRoute[table]?.method || !newCustomRoute[table]?.handler) return;
-
-    const newRoutes = [...currentConfig.endpoints.custom_routes, newCustomRoute[table] as CustomRoute];
-    onChange({
-      ...config,
-      [table]: {
-        ...currentConfig,
-        endpoints: {
-          ...currentConfig.endpoints,
-          custom_routes: newRoutes
-        }
-      }
-    });
-    setNewCustomRoute(prev => {
-      const newState = { ...prev };
-      delete newState[table];
-      return newState;
-    });
-  };
-
-  const handleRemoveCustomRoute = (table: string, index: number) => {
-    const currentConfig = config[table];
-    if (!currentConfig) return;
-
-    const newRoutes = currentConfig.endpoints.custom_routes.filter((_, i) => i !== index);
-    onChange({
-      ...config,
-      [table]: {
-        ...currentConfig,
-        endpoints: {
-          ...currentConfig.endpoints,
-          custom_routes: newRoutes
-        }
-      }
-    });
-  };
 
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4 }}>
@@ -520,63 +456,7 @@ const EntityConfig: React.FC<Props> = ({ entities, config, onChange }) => {
               ))}
             </FormGroup>
 
-            <Typography variant="subtitle1" sx={{ mt: 4 }} gutterBottom>Rutas personalizadas:</Typography>
-            <Box sx={{ mb: 2 }}>
-              <Grid container spacing={2} alignItems="center">
-                <Grid component="div">
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Path"
-                    value={newCustomRoute[table]?.path || ''}
-                    onChange={(e) => handleCustomRouteChange(table, 'path', e.target.value)}
-                  />
-                </Grid>
-                <Grid component="div">
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Método</InputLabel>
-                    <Select
-                      value={newCustomRoute[table]?.method || ''}
-                      onChange={(e) => handleCustomRouteChange(table, 'method', e.target.value)}
-                      label="Método"
-                    >
-                      {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(method => (
-                        <MenuItem key={method} value={method}>{method}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid component="div">
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Handler"
-                    value={newCustomRoute[table]?.handler || ''}
-                    onChange={(e) => handleCustomRouteChange(table, 'handler', e.target.value)}
-                  />
-                </Grid>
-                <Grid component="div">
-                  <Button
-                    variant="contained"
-                    onClick={() => handleAddCustomRoute(table)}
-                    disabled={!newCustomRoute[table]?.path || !newCustomRoute[table]?.method || !newCustomRoute[table]?.handler}
-                  >
-                    <AddIcon />
-                  </Button>
-                </Grid>
-              </Grid>
-            </Box>
 
-            {config[table]?.endpoints?.custom_routes?.map((route, index) => (
-              <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography sx={{ flex: 1 }}>
-                  {route.method} {route.path} → {route.handler}
-                </Typography>
-                <IconButton onClick={() => handleRemoveCustomRoute(table, index)}>
-                  <DeleteIcon />
-                </IconButton>
-              </Box>
-            ))}
 
             <Typography variant="subtitle1" sx={{ mt: 4 }} gutterBottom>Autenticación y Autorización:</Typography>
             <FormControlLabel

@@ -178,33 +178,12 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
     const hasError = !!errors[field.name];
     
     const commonTextFieldProps = {
-      key: field.name,
       fullWidth: true,
       label: field.name,
       error: hasError,
       helperText: errors[field.name],
       required: field.required,
-      sx: { 
-        mb: 2,
-        '& .MuiOutlinedInput-root': {
-          backgroundColor: '#ffffff !important',
-          '& fieldset': {
-            borderColor: 'rgba(0, 0, 0, 0.23) !important',
-          },
-          '&:hover fieldset': {
-            borderColor: 'rgba(0, 0, 0, 0.5) !important',
-          },
-          '&.Mui-focused fieldset': {
-            borderColor: '#1976d2 !important',
-          },
-        },
-        '& .MuiInputLabel-root': {
-          color: 'rgba(0, 0, 0, 0.6) !important',
-        },
-        '& .MuiOutlinedInput-input': {
-          color: 'rgba(0, 0, 0, 0.87) !important',
-        },
-      },
+      sx: { mb: 2 },
     };
     
     switch (dataType) {
@@ -241,6 +220,7 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
       case 'date':
         return (
           <TextField
+            key={field.name}
             {...commonTextFieldProps}
             type="date"
             value={value}
@@ -253,6 +233,7 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
       case 'timestamp':
         return (
           <TextField
+            key={field.name}
             {...commonTextFieldProps}
             type="datetime-local"
             value={value}
@@ -270,6 +251,7 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
       case 'mediumint':
         return (
           <TextField
+            key={field.name}
             {...commonTextFieldProps}
             type="number"
             value={value}
@@ -284,6 +266,7 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
       case 'numeric':
         return (
           <TextField
+            key={field.name}
             {...commonTextFieldProps}
             type="number"
             value={value}
@@ -295,6 +278,7 @@ const RequestDataDialog: React.FC<RequestDataDialogProps> = ({
       default:
         return (
           <TextField
+            key={field.name}
             {...commonTextFieldProps}
             value={value}
             onChange={(e) => handleFieldChange(field.name, e.target.value)}
